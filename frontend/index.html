@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYEXA - Advanced Search Engine</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header class="header">
+            <div class="container">
+                <h1 class="logo">MYEXA</h1>
+                <p class="tagline">Advanced Multi-Language Search Engine</p>
+            </div>
+        </header>
+
+        <main class="container">
+            <!-- Search Section -->
+            <section class="search-section">
+                <div class="search-box">
+                    <input 
+                        v-model="searchQuery" 
+                        @keyup.enter="performSearch"
+                        type="text" 
+                        placeholder="Enter search query..."
+                        class="search-input"
+                    >
+                    <button @click="performSearch" class="search-btn">Search</button>
+                </div>
+
+                <!-- Language Selection -->
+                <div class="language-selector">
+                    <label>Languages:</label>
+                    <div class="lang-checkboxes">
+                        <label><input v-model="selectedLanguages" type="checkbox" value="en"> English</label>
+                        <label><input v-model="selectedLanguages" type="checkbox" value="de"> Deutsch</label>
+                        <label><input v-model="selectedLanguages" type="checkbox" value="it"> Italiano</label>
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div class="options">
+                    <label><input v-model="filterByRelevance" type="checkbox"> Filter by Relevance</label>
+                    <label><input v-model="searchCustomDB" type="checkbox"> Search Custom DB</label>
+                    <input v-model.number="numResults" type="number" min="5" max="50" placeholder="Results">
+                </div>
+
+                <!-- OCR Upload -->
+                <div class="ocr-section">
+                    <h3>OCR - Extract Text from PDF/Image</h3>
+                    <input 
+                        @change="handleFileUpload" 
+                        type="file" 
+                        accept=".pdf,.jpg,.jpeg,.png,.bmp,.tiff"
+                        class="file-input"
+                    >
+                    <button @click="performOCR" class="ocr-btn" v-if="uploadedFile">Process OCR</button>
+                </div>
+            </section>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button 
+                    v-for="tab in tabs" 
+                    :key="tab"
+                    @click="activeTab = tab"
+                    :class="['tab', { active: activeTab === tab }]"
+                >
+                    {{ tab }}
+                </button>
+            </div>
+
+            <!-- Results Section -->
+            <section class="results-section" v-if="searchResults">
+                <div v-if="loading" class="loading">Searching...</div>
+                
+                <div v-else-if="Object.keys(searchResults).length === 0" class="no-results">
+                    No results found
+                </div>
+
+                <div v-else>
+                    <!-- Language Results -->
+                    <div v-if="activeTab !== 'Custom DB'" class="language-results">
+                        <h2>{{ activeTab }} Results</h2>
+                        <div v-if="searchResults[activeTab.toLowerCase()]" class="results-list">
+                            <div 
+                                v-for="(result, index) in searchResults[activeTab.toLowerCase()]" 
+                                :key="index"
+                                class="result-item"
+                            >
+                                <div class="result-header">
+                                    <h3>
+                                        <a :href="result.url" target="_blank">{{ result.title }}</a>
+                                    </h3>
+                                    <span class="relevance-badge">{{ (result.relevance_index || 0).toFixed(1) }}</span>
+                                </div>
+                                <p class="result-url">{{ result.url }}</p>
+                                <p class="result-snippet">{{ result.highlights?.substring(0, 200) }}...</p>
+                                <div class="result-meta">
+                                    <span class="score">Embedding: {{ (result.embedding_score || 0).toFixed(2) }}</span>
+                                    <button @click="addToCustomDB(result)" class="add-btn">+ Add to DB</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Custom DB Results -->
+                    <div v-if="activeTab === 'Custom DB'" class="custom-db-results">
+                        <h2>Custom Database Results</h2>
+                        <div v-if="searchResults.custom_db" class="results-list">
+                            <div 
+                                v-for="(site, index) in searchResults.custom_db" 
+                                :key="index"
+                                class="result-item"
+                            >
+                                <div class="result-header">
+                                    <h3>
+                                        <a :href="site.url" target="_blank">{{ site.title }}</a>
+                                    </h3>
+                                    <span class="category-badge">{{ site.category }}</span>
+                                </div>
+                                <p class="result-url">{{ site.url }}</p>
+                                <p class="result-tags" v-if="site.tags">Tags: {{ site.tags }}</p>
+                                <button @click="removeFromCustomDB(site.url)" class="remove-btn">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Custom Sites Management -->
+            <section class="custom-sites-section">
+                <h2>Manage Custom Sites</h2>
+                <div class="add-site-form">
+                    <input v-model="newSite.url" type="url" placeholder="URL">
+                    <input v-model="newSite.title" type="text" placeholder="Title">
+                    <input v-model="newSite.category" type="text" placeholder="Category">
+                    <input v-model="newSite.tags" type="text" placeholder="Tags (comma-separated)">
+                    <button @click="addCustomSite" class="add-site-btn">Add Site</button>
+                </div>
+
+                <div class="sites-list">
+                    <h3>Saved Sites ({{ customSites.length }})</h3>
+                    <div v-for="site in customSites" :key="site.url" class="site-item">
+                        <div>
+                            <strong>{{ site.title }}</strong>
+                            <p>{{ site.url }}</p>
+                            <small v-if="site.category">Category: {{ site.category }}</small>
+                        </div>
+                        <button @click="removeCustomSite(site.url)" class="delete-btn">Delete</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2026 MYEXA - Advanced Search Engine</p>
+        </footer>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
