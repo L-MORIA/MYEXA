@@ -1,64 +1,66 @@
-from google.cloud import translate_v2
-import os
+import logging
+from functools import lru_cache
+
+logger = logging.getLogger(__name__)
+
+LANG_MAP = {"en": "en", "de": "de", "it": "it"}
+GOOGLE_URL = "https://translate.googleapis.com/translate_a/single"
+
 
 class Translator:
     def __init__(self):
-        # Using Google Translate API (free tier available)
-        # Alternative: use free API like LibreTranslate
-        self.client = None
-        self.use_free_api = True
-    
+        self._cache = {}
+
     def translate(self, text: str, target_language: str) -> str:
-        """Translate text to target language"""
-        if self.use_free_api:
-            return self._translate_free(text, target_language)
-        else:
-            return self._translate_google(text, target_language)
-    
-    def _translate_free(self, text: str, target_language: str) -> str:
-        """Use free translation API (LibreTranslate)"""
-        import requests
-        
-        lang_map = {
-            "en": "en",
-            "de": "de",
-            "it": "it"
-        }
-        
-        try:
-            response = requests.post(
-                "https://libretranslate.de/translate",
-                json={
-                    "q": text,
-                    "source": "auto",
-                    "target": lang_map.get(target_language, "en")
-                },
-                timeout=5
-            )
-            if response.status_code == 200:
-                return response.json().get("translatedText", text)
-        except Exception as e:
-            print(f"Translation error: {e}")
-        
-        return text
-    
-    def _translate_google(self, text: str, target_language: str) -> str:
-        """Use Google Translate API"""
-        if not self.client:
-            self.client = translate_v2.Client()
-        
-        try:
-            result = self.client.translate_text(
-                text,
-                target_language=target_language
-            )
-            return result["translatedText"]
-        except Exception as e:
-            print(f"Google Translate error: {e}")
+        target = LANG_MAP.get(target_language)
+        if not target:
             return text
-    
+
+        cache_key = (text, target)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        result = self._translate_google(text, target)
+        if not result:
+            result = self._translate_libretranslate(text, target)
+        if not result:
+            result = text
+
+        self._cache[cache_key] = result
+        return result
+
+    def _translate_google(self, text: str, target: str) -> str | None:
+        import requests
+
+        try:
+            resp = requests.get(
+                GOOGLE_URL,
+                params={"client": "gtx", "sl": "auto", "tl": target, "dt": "t", "q": text},
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                parts = resp.json()[0]
+                return "".join(p[0] for p in parts if p[0])
+        except Exception as e:
+            logger.warning("Google Translate error: %s", e)
+        return None
+
+    def _translate_libretranslate(self, text: str, target: str) -> str | None:
+        import requests
+
+        try:
+            resp = requests.post(
+                "https://libretranslate.de/translate",
+                json={"q": text, "source": "auto", "target": target},
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                return resp.json().get("translatedText")
+        except Exception as e:
+            logger.warning("LibreTranslate error: %s", e)
+        return None
+
     def translate_to_multiple(self, text: str, languages: list) -> dict:
-        """Translate text to multiple languages"""
         results = {"original": text}
         for lang in languages:
             results[lang] = self.translate(text, lang)

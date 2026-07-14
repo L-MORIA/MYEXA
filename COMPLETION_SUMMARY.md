@@ -367,4 +367,4 @@ MYEXA - Advanced Search Engine (2026)
 
 **Last Updated**: 2026-04-08  
 **Version**: 1.0.0  
-**Location**: `C:\Users\alexe\PycharmProjects\MYEXA`
+**Location**: `C:\Users\...\MYEXA`

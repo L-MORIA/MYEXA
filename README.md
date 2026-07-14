@@ -1,59 +1,87 @@
-# MYEXA - Advanced Search Engine with Exa API
+# MYEXA — Advanced Search Engine
 
 Multi-language search engine with embedding-based filtering, OCR support, and custom site database.
 
 ## Features
 
-- 🌐 Multi-language search (EN, DE, IT)
-- 🤖 Embedding-based result filtering (sentence-transformers)
-- 📄 OCR support (PyPDF2 + Tesseract)
-- 💾 SQLite database for results and custom sites
-- 🔍 Search in custom site database
-- 📊 Result indexing and relevance scoring
-- 🎨 Vue 3 web interface on port 3005
-- ⚡ FastAPI backend
+- Multi-language search (EN, DE, IT) via Exa API
+- Automatic query translation (Google Translate AJAX, no key required)
+- Embedding-based relevance filtering (sentence-transformers all-MiniLM-L6-v2)
+- OCR support (PyPDF2 + Tesseract) for PDF and images
+- SQLite database for results and custom sites
+- Relevance indexing (domain authority, freshness, custom boost)
+- Vue 3 web interface on port 3005
+- FastAPI async backend
+- Desktop launcher with auto-start and health-check polling
+
+## Quick Start
+
+```bash
+pip install -r backend/requirements.txt
+python backend/app.py
+```
+
+Visit **http://localhost:3005**
+
+Or double-click `MYEXA.lnk` on the desktop.
 
 ## Project Structure
 
 ```
 MYEXA/
 ├── backend/
-│   ├── app.py
-│   ├── config.py
-│   ├── requirements.txt
+│   ├── app.py                  # FastAPI application (routes, CORS, static)
+│   ├── config.py               # Configuration (.env, logging)
+│   ├── requirements.txt        # Python dependencies
 │   ├── api/
-│   │   ├── search.py
-│   │   ├── database.py
-│   │   └── translator.py
+│   │   ├── database.py         # SQLite with context manager + row_factory
+│   │   └── translator.py       # Google Translate AJAX + LibreTranslate fallback
 │   ├── services/
-│   │   ├── exa_service.py
-│   │   ├── embedding.py
-│   │   ├── indexing.py
-│   │   ├── ocr_service.py
-│   │   └── site_db.py
+│   │   ├── exa_service.py      # Exa API via direct HTTP requests
+│   │   ├── embedding.py        # sentence-transformers encoding + filtering
+│   │   ├── indexing.py         # Relevance index calculation
+│   │   ├── ocr_service.py      # PDF/image text extraction
+│   │   └── site_db.py          # Custom site CRUD
 │   └── models/
-│       └── schemas.py
+│       └── schemas.py          # Pydantic models
 ├── frontend/
-│   ├── index.html
-│   ├── style.css
-│   └── script.js
-├── database/
-│   └── myexa.db
-├── .gitignore
-├── .env.example
-└── README.md
+│   ├── index.html              # Vue 3 SPA
+│   ├── script.js               # Vue 3 app logic
+│   ├── style.css               # Responsive styling
+│   └── favicon.svg             # Brand favicon
+├── database/                   # SQLite storage (auto-created)
+├── .env                        # Environment variables
+├── run.bat                     # Windows launcher with health-check
+└── run.sh                      # Linux/Mac launcher
 ```
 
-## Installation
+## API Endpoints
 
-```bash
-pip install -r backend/requirements.txt
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Serve frontend |
+| POST | `/api/search` | Multi-language search |
+| POST | `/api/ocr` | PDF/image text extraction |
+| GET | `/api/custom-sites` | List custom sites |
+| POST | `/api/custom-sites/add` | Add site (JSON body) |
+| DELETE | `/api/custom-sites/{id}` | Delete site by ID |
+| GET | `/api/health` | Health check |
+
+## Environment
+
+```env
+EXA_API_KEY=your_key_here
+DATABASE_PATH=./database/myexa.db
+LOG_LEVEL=INFO
+PORT=3005
+HOST=0.0.0.0
 ```
 
-## Running
+## Tech Stack
 
-```bash
-python backend/app.py
-```
-
-Visit: http://localhost:3005
+- **Backend:** Python 3.14, FastAPI, Uvicorn, SQLite
+- **ML:** sentence-transformers 3.4.1, PyTorch 2.11
+- **Search:** Exa API (direct HTTP)
+- **Translation:** Google Translate AJAX (free, no key)
+- **OCR:** PyPDF2, Tesseract, pdf2image
+- **Frontend:** Vue 3 (CDN), CSS

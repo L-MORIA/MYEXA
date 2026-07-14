@@ -1,15 +1,28 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+import logging
 import os
 import sys
+import tempfile
 
-# Add backend to path
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "0")
+
+import torch
+torch.set_num_threads(1)
+torch.set_num_interop_threads(1)
+
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config import Config
-from models.schemas import SearchQuery, OCRRequest
+from models.schemas import SearchQuery
 from api.database import Database
 from api.translator import Translator
 from services.exa_service import ExaService
@@ -18,18 +31,26 @@ from services.indexing import IndexingService
 from services.ocr_service import OCRService
 from services.site_db import SiteDBService
 
+logger = logging.getLogger(__name__)
+
+
+class AddSiteRequest(BaseModel):
+    url: str
+    title: str
+    category: str | None = None
+    tags: str | None = None
+
+
 app = FastAPI(title="MYEXA", version="1.0.0")
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3005"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize services
 db = Database()
 translator = Translator()
 exa_service = ExaService()
@@ -38,15 +59,27 @@ indexing_service = IndexingService()
 ocr_service = OCRService()
 site_db_service = SiteDBService()
 
-# Serve static files
-frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
+logger.info("All services initialized")
+
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+frontend_path = os.path.normpath(os.path.join(backend_dir, "..", "frontend"))
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+    logger.info("Static files mounted from %s", frontend_path)
 
 @app.get("/")
 async def root():
-    """Serve main page"""
+    frontend_index = os.path.join(frontend_path, "index.html")
+    if os.path.exists(frontend_index):
+        return FileResponse(frontend_index)
     return {"message": "MYEXA API running on port 3005"}
+
+@app.get("/favicon.ico")
+async def favicon():
+    favicon_path = os.path.join(frontend_path, "favicon.svg")
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path, media_type="image/svg+xml")
+    return RedirectResponse(url="/static/favicon.svg")
 
 @app.post("/api/search")
 async def search(query_data: SearchQuery):
@@ -111,30 +144,36 @@ async def search(query_data: SearchQuery):
 
 @app.post("/api/ocr")
 async def ocr_process(file: UploadFile = File(...), language: str = "eng"):
-    """Process file with OCR (PDF or image)"""
+    allowed_ext = {".pdf", ".jpg", ".jpeg", ".png", ".bmp", ".tiff"}
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in allowed_ext:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
+
+    content_length = file.headers.get("content-length")
+    if content_length and int(content_length) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 50MB)")
+
+    temp_path = None
     try:
-        # Save uploaded file temporarily
-        temp_path = f"/tmp/{file.filename}"
-        with open(temp_path, "wb") as f:
-            f.write(await file.read())
-        
-        # Process file
+        suffix = os.path.splitext(file.filename or "upload")[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await file.read())
+            temp_path = tmp.name
+
         result = ocr_service.process_file(temp_path, language)
-        
-        # Clean up
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        
         return result
-    
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
 
 @app.post("/api/custom-sites/add")
-async def add_custom_site(url: str, title: str, category: str = None, tags: str = None):
-    """Add site to custom database"""
+async def add_custom_site(site: AddSiteRequest):
     try:
-        success = site_db_service.add_site(url, title, category, tags)
+        success = site_db_service.add_site(site.url, site.title, site.category, site.tags)
         return {
             "success": success,
             "message": "Site added" if success else "Failed to add site"
@@ -155,11 +194,10 @@ async def get_custom_sites():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/custom-sites/{url}")
-async def delete_custom_site(url: str):
-    """Delete site from custom database"""
+@app.delete("/api/custom-sites/{site_id:int}")
+async def delete_custom_site(site_id: int):
     try:
-        success = site_db_service.delete_site(url)
+        success = site_db_service.delete_site(site_id)
         return {
             "success": success,
             "message": "Site deleted" if success else "Failed to delete site"

@@ -95,6 +95,10 @@ htmlcov/
 # Logs
 *.log
 logs/
+server_*.txt
+
+# HuggingFace cache
+.hf_cache/
 
 # Local development
 .local/
