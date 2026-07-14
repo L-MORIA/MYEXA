@@ -1,49 +1,39 @@
 @echo off
-REM MYEXA - Advanced Search Engine Launcher
-REM This script installs dependencies and starts the application
+title MYEXA - Search Engine
+cd /d "%~dp0"
+
+if not exist ".env" (
+    copy .env.example .env
+    echo Created .env — edit it to add your EXA_API_KEY
+)
+
+if not exist "database" mkdir database
 
 echo.
 echo ========================================
 echo   MYEXA - Advanced Search Engine
 echo ========================================
 echo.
-
-REM Check if Python is installed
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo Error: Python is not installed or not in PATH
-    pause
-    exit /b 1
-)
-
-REM Create .env file if it doesn't exist
-if not exist ".env" (
-    echo Creating .env file...
-    copy .env.example .env
-    echo Please edit .env and add your EXA_API_KEY
-    pause
-)
-
-REM Create database directory
-if not exist "database" mkdir database
-
-REM Install dependencies
-echo.
 echo Installing dependencies...
-pip install -r backend/requirements.txt -q
+pip install -q -r backend\requirements.txt 2>nul
 
-if errorlevel 1 (
-    echo Error: Failed to install dependencies
-    pause
-    exit /b 1
+echo Starting server...
+start /B "" python backend\app.py
+
+echo Loading model (30-45 sec)...
+setlocal enabledelayedexpansion
+for /L %%i in (1,1,90) do (
+    >nul 2>&1 timeout /t 1
+    >nul 2>&1 curl.exe -s http://localhost:3005/api/health && goto ready
 )
+:ready
 
-REM Start the application
 echo.
-echo Starting MYEXA on http://localhost:3005
-echo Press Ctrl+C to stop the server
+echo ========================================
+echo   Server ready on http://localhost:3005
+echo ========================================
+start http://localhost:3005
 echo.
-
-python backend/app.py
-
-pause
+echo Close this window to stop the server.
+pause >nul
+taskkill /f /im python.exe >nul 2>&1

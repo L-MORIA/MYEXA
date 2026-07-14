@@ -19,7 +19,8 @@ createApp({
                 category: '',
                 tags: ''
             },
-            tabs: ['English', 'Deutsch', 'Italiano', 'Custom DB']
+            tabs: ['English', 'Deutsch', 'Italiano', 'Custom DB'],
+            tabKeyMap: { en: 'English', de: 'Deutsch', it: 'Italiano', custom_db: 'Custom DB' }
         };
     },
     
@@ -27,6 +28,13 @@ createApp({
         this.loadCustomSites();
     },
     
+    computed: {
+        activeTabResults() {
+            const map = { English: 'en', Deutsch: 'de', Italiano: 'it', 'Custom DB': 'custom_db' };
+            const key = map[this.activeTab] || this.activeTab.toLowerCase();
+            return this.searchResults?.[key] || [];
+        }
+    },
     methods: {
         async performSearch() {
             if (!this.searchQuery.trim()) {
@@ -142,16 +150,16 @@ createApp({
             }
         },
         
-        async removeCustomSite(url) {
+        async removeCustomSite(site) {
             if (!confirm('Are you sure you want to delete this site?')) {
                 return;
             }
-            
+
             try {
-                const response = await fetch(`/api/custom-sites/${encodeURIComponent(url)}`, {
+                const response = await fetch(`/api/custom-sites/${site.id}`, {
                     method: 'DELETE'
                 });
-                
+
                 const data = await response.json();
                 if (data.success) {
                     this.loadCustomSites();
@@ -191,21 +199,21 @@ createApp({
             }
         },
         
-        async removeFromCustomDB(url) {
+        async removeFromCustomDB(site) {
             if (!confirm('Remove from custom database?')) {
                 return;
             }
-            
+
             try {
-                const response = await fetch(`/api/custom-sites/${encodeURIComponent(url)}`, {
+                const response = await fetch(`/api/custom-sites/${site.id}`, {
                     method: 'DELETE'
                 });
-                
+
                 const data = await response.json();
                 if (data.success) {
                     this.loadCustomSites();
                     if (this.searchResults && this.searchResults.custom_db) {
-                        this.searchResults.custom_db = this.searchResults.custom_db.filter(s => s.url !== url);
+                        this.searchResults.custom_db = this.searchResults.custom_db.filter(s => s.id !== site.id);
                     }
                 }
             } catch (error) {

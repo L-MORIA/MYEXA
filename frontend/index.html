@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MYEXA - Advanced Search Engine</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div id="app">
@@ -81,11 +82,11 @@
 
                 <div v-else>
                     <!-- Language Results -->
-                    <div v-if="activeTab !== 'Custom DB'" class="language-results">
-                        <h2>{{ activeTab }} Results</h2>
-                        <div v-if="searchResults[activeTab.toLowerCase()]" class="results-list">
+                        <div v-if="activeTab !== 'Custom DB'" class="language-results">
+                            <h2>{{ activeTab }} Results</h2>
+                            <div v-if="activeTabResults.length" class="results-list">
                             <div 
-                                v-for="(result, index) in searchResults[activeTab.toLowerCase()]" 
+                                v-for="(result, index) in activeTabResults" 
                                 :key="index"
                                 class="result-item"
                             >
@@ -108,9 +109,9 @@
                     <!-- Custom DB Results -->
                     <div v-if="activeTab === 'Custom DB'" class="custom-db-results">
                         <h2>Custom Database Results</h2>
-                        <div v-if="searchResults.custom_db" class="results-list">
+                        <div v-if="activeTabResults.length" class="results-list">
                             <div 
-                                v-for="(site, index) in searchResults.custom_db" 
+                                v-for="(site, index) in activeTabResults" 
                                 :key="index"
                                 class="result-item"
                             >
@@ -122,7 +123,7 @@
                                 </div>
                                 <p class="result-url">{{ site.url }}</p>
                                 <p class="result-tags" v-if="site.tags">Tags: {{ site.tags }}</p>
-                                <button @click="removeFromCustomDB(site.url)" class="remove-btn">Remove</button>
+                                <button @click="removeFromCustomDB(site)" class="remove-btn">Remove</button>
                             </div>
                         </div>
                     </div>
@@ -148,7 +149,7 @@
                             <p>{{ site.url }}</p>
                             <small v-if="site.category">Category: {{ site.category }}</small>
                         </div>
-                        <button @click="removeCustomSite(site.url)" class="delete-btn">Delete</button>
+                        <button @click="removeCustomSite(site)" class="delete-btn">Delete</button>
                     </div>
                 </div>
             </section>
@@ -160,6 +161,6 @@
     </div>
 
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="script.js"></script>
+    <script src="/static/script.js"></script>
 </body>
 </html>
