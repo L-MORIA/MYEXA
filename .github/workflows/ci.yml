@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt', 'backend/requirements-dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu --quiet
+          pip install -r backend/requirements.txt --quiet
+          pip install -r backend/requirements-dev.txt --quiet
+
+      - name: Check syntax
+        run: |
+          python -m py_compile backend/config.py
+          python -m py_compile backend/models/schemas.py
+          python -m py_compile backend/api/database.py
+          python -m py_compile backend/api/translator.py
+          python -m py_compile backend/services/exa_service.py
+          python -m py_compile backend/services/embedding.py
+          python -m py_compile backend/services/indexing.py
+          python -m py_compile backend/services/ocr_service.py
+          python -m py_compile backend/services/site_db.py
+
+      - name: Run tests
+        working-directory: ./backend
+        run: pytest -v --tb=short -q
+
+      - name: Verify frontend files
+        run: |
+          test -f frontend/index.html && echo "index.html ok"
+          test -f frontend/script.js && echo "script.js ok"
+          test -f frontend/style.css && echo "style.css ok"
