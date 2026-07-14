@@ -103,6 +103,9 @@ server_*.txt
 # HuggingFace cache
 .hf_cache/
 
+# Agent artifacts (.zcode from OpenCode/Codex)
+.zcode/
+
 # Local development
 .local/
 local_config.py

@@ -3,7 +3,7 @@ from typing import List
 
 class SearchQuery(BaseModel):
     query: str
-    languages: List[str] = ["en", "de", "it"]
+    languages: List[str] = ["ru"]
     num_results: int = 10
     filter_by_relevance: bool = True
     search_custom_db: bool = True

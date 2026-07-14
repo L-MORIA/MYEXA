@@ -4,13 +4,13 @@ createApp({
     data() {
         return {
             searchQuery: '',
-            selectedLanguages: ['en', 'de', 'it'],
+            selectedLanguages: ['ru'],
             numResults: 10,
             filterByRelevance: true,
             searchCustomDB: true,
             searchResults: null,
             loading: false,
-            activeTab: 'English',
+            activeTab: 'Русский',
             customSites: [],
             uploadedFile: null,
             newSite: {
@@ -19,8 +19,8 @@ createApp({
                 category: '',
                 tags: ''
             },
-            tabs: ['English', 'Deutsch', 'Italiano', 'Custom DB'],
-            tabKeyMap: { en: 'English', de: 'Deutsch', it: 'Italiano', custom_db: 'Custom DB' }
+            tabs: ['Русский', 'English', 'Deutsch', 'Italiano', 'Custom DB'],
+            tabKeyMap: { ru: 'Русский', en: 'English', de: 'Deutsch', it: 'Italiano', custom_db: 'Custom DB' }
         };
     },
     
@@ -30,7 +30,7 @@ createApp({
     
     computed: {
         activeTabResults() {
-            const map = { English: 'en', Deutsch: 'de', Italiano: 'it', 'Custom DB': 'custom_db' };
+            const map = { 'Русский': 'ru', English: 'en', Deutsch: 'de', Italiano: 'it', 'Custom DB': 'custom_db' };
             const key = map[this.activeTab] || this.activeTab.toLowerCase();
             return this.searchResults?.[key] || [];
         }
@@ -61,7 +61,7 @@ createApp({
                 const data = await response.json();
                 if (data.success) {
                     this.searchResults = data.results;
-                    this.activeTab = 'English';
+                    this.activeTab = 'Русский';
                 } else {
                     alert('Search failed');
                 }
