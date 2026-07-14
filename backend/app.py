@@ -89,31 +89,41 @@ async def search(query_data: SearchQuery):
     """Search with multi-language support and filtering"""
     try:
         query = query_data.query
-        languages = query_data.languages
+        languages = query_data.languages or [Config.SOURCE_LANGUAGE]
         num_results = query_data.num_results
-        
-        # Translate query to all languages
+
+        # Translate query to all requested languages. ``translations`` holds the
+        # translated query per language (and the original under "original").
         translations = translator.translate_to_multiple(query, languages)
-        
-        # Search in all languages
+
+        # Search Exa in each language using the *translated* query, biased toward
+        # that language's national domains (Exa has no native lang param).
         all_results = {}
         for lang in languages:
-            search_query = translations.get(lang, query)
-            results = exa_service.search(search_query, num_results, lang)
+            search_query = translations.get(lang) or translations.get("original") or query
+            include_domains = Config.language_domains(lang)
+            results = exa_service.search(
+                search_query, num_results, lang, include_domains=include_domains
+            )
             all_results[lang] = results
-        
-        # Filter by embedding similarity
+
+        # Filter by embedding similarity using the *translated* query for each
+        # language. Previously the original (Russian) query was compared against
+        # German/Italian/English snippets via an English-only model, so the 0.5
+        # threshold silently dropped every non-English result.
         if query_data.filter_by_relevance:
-            all_results = embedding_service.batch_filter(query, all_results)
-        
+            for lang, results in all_results.items():
+                translated_query = translations.get(lang) or query
+                all_results[lang] = embedding_service.filter_results(translated_query, results)
+
         # Get custom sites for boosting
         custom_site_urls = site_db_service.get_site_urls()
-        
+
         # Rank results
         ranked_results = {}
         for lang, results in all_results.items():
             ranked_results[lang] = indexing_service.rank_results(results, custom_site_urls)
-            
+
             # Save to database
             for result in ranked_results[lang]:
                 db.save_result(
@@ -125,15 +135,15 @@ async def search(query_data: SearchQuery):
                     language=lang,
                     source="exa"
                 )
-        
+
         # Search custom database if enabled
         if query_data.search_custom_db:
             custom_results = site_db_service.search_in_custom_db(query)
             ranked_results["custom_db"] = custom_results
-        
+
         # Save to history
         db.save_search_history(query, ",".join(languages), sum(len(r) for r in ranked_results.values()))
-        
+
         return {
             "success": True,
             "query": query,
@@ -141,7 +151,7 @@ async def search(query_data: SearchQuery):
             "results": ranked_results,
             "total_results": sum(len(r) for r in ranked_results.values())
         }
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

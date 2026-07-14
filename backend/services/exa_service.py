@@ -26,14 +26,22 @@ class ExaService:
             return {}
         return resp.json()
 
-    def search(self, query: str, num_results: int = 10, language: str = "en") -> List[Dict]:
+    def search(self, query: str, num_results: int = 10, language: str = "en",
+               include_domains: List[str] = None) -> List[Dict]:
+        # Exa has no native `lang` parameter; national domains are passed in by
+        # the caller (from Config.LANGUAGES) to bias results toward the target
+        # language's corner of the web.
         try:
-            data = self._request("/search", {
+            payload = {
                 "query": query,
                 "numResults": num_results,
                 "type": "auto",
                 "contents": {"highlights": {"maxCharacters": 4000}},
-            })
+            }
+            if include_domains:
+                payload["includeDomains"] = list(include_domains)
+
+            data = self._request("/search", payload)
             if not data:
                 return []
 
