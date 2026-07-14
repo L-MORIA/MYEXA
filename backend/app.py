@@ -11,7 +11,10 @@ os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "0")
 
 import torch
 torch.set_num_threads(1)
-torch.set_num_interop_threads(1)
+try:
+    torch.set_num_interop_threads(1)
+except RuntimeError:
+    pass
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
