@@ -4,11 +4,11 @@ Advanced multi-language search engine with embedding-based filtering, OCR, and c
 
 ## Features
 
-- **Multi-Language Search** — English, German, Italian simultaneously via Exa API
+- **Multi-Language Search** — Russian, English, German, Italian simultaneously via Exa API
 - **Embedding-Based Filtering** — sentence-transformers for semantic relevance scoring
 - **Smart Indexing** — relevance index based on embedding similarity (40%), domain authority (20%), freshness (15%), language match (15%), custom boost (10%)
 - **OCR Support** — extract text from PDF and images (PyPDF2 + Tesseract)
-- **Custom Site Database** — build your own curated site collection with categories and tags
+- **Custom Site Database** — curated site collection with categories, tags and word-by-word matching ranked by hit count
 - **Vue 3 Web Interface** — modern responsive UI on port 3005
 - **FastAPI Backend** — high-performance async API
 - **SQLite Database** — persistent storage
@@ -51,7 +51,8 @@ EXA_API_KEY=your_exa_api_key_here
 DATABASE_PATH=./database/myexa.db
 LOG_LEVEL=INFO
 PORT=3005
-HOST=0.0.0.0
+# 127.0.0.1 = local only (recommended); 0.0.0.0 exposes the API to the network
+HOST=127.0.0.1
 ```
 
 ### 4. Start the server
@@ -79,17 +80,17 @@ Double-click `MYEXA.lnk` on your desktop. It will:
 ### Search
 
 1. Enter a query in any language
-2. Select languages (EN, DE, IT)
+2. Select languages (RU, EN, DE, IT)
 3. Toggle options:
    - **Filter by Relevance** — semantic similarity filter
    - **Search Custom DB** — include your saved sites
-   - Results count (5–50)
+   - Results count (1–50, enforced by the API)
 4. Click **Search**
 5. Browse results with relevance scores
 
 ### Tab Navigation
 
-- **English / Deutsch / Italiano** — results per language
+- **Русский / English / Deutsch / Italiano** — results per language
 - **Custom DB** — your saved site collection
 
 ### OCR
@@ -153,7 +154,9 @@ Or change `PORT` in `.env`.
 
 ### Exa API errors
 
-Verify your key in `.env`. The key `REDACTED-EXA-KEY-1` is a working test key.
+Verify your key in `.env`. Without a valid key the search endpoint still
+responds 200 — Exa results are simply empty (check the server log for
+`Exa API error 403`).
 
 ### Embedding model fails
 
@@ -169,7 +172,10 @@ Install from https://github.com/UB-Mannheim/tesseract/wiki
 
 ### Translation not working
 
-Google Translate AJAX (default) requires no key. LibreTranslate fallback at `libretranslate.de`.
+Translation uses the Yandex browser endpoint first with the Google Translate
+AJAX endpoint as fallback; neither requires a key. If both fail (e.g. no
+network), the original query is used untranslated — search keeps working.
+Translations are cached in memory (LRU, 1024 entries).
 
 ## Dependencies
 
@@ -177,18 +183,19 @@ Google Translate AJAX (default) requires no key. LibreTranslate fallback at `lib
 |---------|---------|---------|
 | fastapi | >=0.115.0 | Web framework |
 | uvicorn | >=0.32.0 | ASGI server |
-| exa-py | 1.0.1 | Exa API client (not used; direct HTTP instead) |
 | sentence-transformers | >=3.4.0 | Embedding model |
 | torch | >=2.9.0 | ML framework |
 | PyPDF2 | 3.0.1 | PDF text extraction |
 | pytesseract | >=0.3.10 | OCR engine |
 | Pillow | >=11.2.0 | Image processing |
-| pdf2image | 1.17.0 | PDF to image conversion |
+| pdf2image | 1.17.0 | PDF to image conversion (requires Poppler) |
 | python-multipart | 0.0.25 | Form data parsing |
 | requests | 2.31.0 | HTTP client |
 | pydantic | >=2.10.0 | Data validation |
 | python-dotenv | 1.0.0 | Environment variables |
 
+Dev/test extras (see `requirements-dev.txt`): pytest, pytest-asyncio, httpx.
+
 ## Version
 
-**1.0.0** — Last updated: 2026-05-15
+**1.1.0** — Last updated: 2026-10-25

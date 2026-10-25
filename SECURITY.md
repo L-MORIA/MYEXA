@@ -77,8 +77,11 @@ EXA_API_KEY=your_actual_api_key_here
 DATABASE_PATH=./database/myexa.db
 LOG_LEVEL=INFO
 PORT=3005
-HOST=0.0.0.0
+HOST=127.0.0.1
 TESSERACT_PATH=tesseract
+
+# HOST=127.0.0.1 keeps the unauthenticated API local-only.
+# Set HOST=0.0.0.0 ONLY if you deliberately want LAN access.
 ```
 
 ### .env is automatically ignored
@@ -90,6 +93,17 @@ TESSERACT_PATH=tesseract
 
 ## 🛡️ Security Best Practices
 
+### 0. Protections already implemented in the code
+
+- **Loopback bind by default** — `HOST=127.0.0.1`; the unauthenticated API is not exposed to the network unless explicitly configured
+- **Input validation** — blank queries, unsupported languages and `num_results` outside 1–50 are rejected with 422 before any external API call
+- **Upload limits** — OCR enforces the real 50MB body size (not just the declared header) and rejects PDFs over 50 pages before rendering
+- **Generic error responses** — 500s return `"Internal server error"` only; stack traces stay in the server log
+- **Domain-authority matching by hostname** — look-alike hosts (`github.com.evil.example`) and path-based spoofing don't get trust scores
+- **Bounded translation cache** — LRU, 1024 entries
+- **Parameterized SQL everywhere** — no string-concatenated queries
+- **CORS allowlist** — `http://localhost:3005` only
+
 ### 1. API Key Management
 ```python
 # ✅ CORRECT - Load from .env
@@ -100,7 +114,7 @@ load_dotenv()
 api_key = os.getenv("EXA_API_KEY")
 
 # ❌ WRONG - Hardcoded key
-api_key = "REDACTED-EXA-KEY-2"
+api_key = "<hardcoded-secret>"
 ```
 
 ### 2. Never Log Sensitive Data
@@ -123,7 +137,7 @@ class Config:
     
 # ❌ WRONG - Hardcoded values
 class Config:
-    EXA_API_KEY = "REDACTED-EXA-KEY-2"
+    EXA_API_KEY = "<hardcoded-secret>"
 ```
 
 ---
@@ -284,7 +298,7 @@ git add .env
 git add credentials.json
 
 # ❌ DON'T hardcode API keys
-EXA_API_KEY = "REDACTED-EXA-KEY-2"
+EXA_API_KEY = "<hardcoded-secret>"
 
 # ❌ DON'T log sensitive data
 print(f"Key: {api_key}")

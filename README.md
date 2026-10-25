@@ -4,14 +4,17 @@ Multi-language search engine with embedding-based filtering, OCR support, and cu
 
 ## Features
 
-- Multi-language search (EN, DE, IT) via Exa API
-- Automatic query translation (Google Translate AJAX, no key required)
-- Embedding-based relevance filtering (sentence-transformers all-MiniLM-L6-v2)
-- OCR support (PyPDF2 + Tesseract) for PDF and images
-- SQLite database for results and custom sites
-- Relevance indexing (domain authority, freshness, custom boost)
+- Multi-language search (RU, EN, DE, IT) via Exa API
+- Automatic query translation (Yandex first, Google Translate AJAX fallback; no key required)
+- Embedding-based relevance filtering (sentence-transformers paraphrase-multilingual-MiniLM-L12-v2)
+- OCR support (PyPDF2 + Tesseract) for PDF and images, with upload size and page limits
+- SQLite database for results and custom sites (auto-created on first start)
+- Relevance indexing 0–100 (domain authority, freshness, custom boost)
+- Custom site database with word-by-word matching, ranked by hit count
+- Input validation on all API endpoints (blank queries, unknown languages, oversized requests rejected)
 - Vue 3 web interface on port 3005
 - FastAPI async backend
+- 129 automated tests (pytest) + GitHub Actions CI
 - Desktop launcher with auto-start and health-check polling
 
 ## Quick Start
@@ -35,15 +38,16 @@ MYEXA/
 │   ├── requirements.txt        # Python dependencies
 │   ├── api/
 │   │   ├── database.py         # SQLite with context manager + row_factory
-│   │   └── translator.py       # Google Translate AJAX + LibreTranslate fallback
+│   │   └── translator.py       # Yandex Translate + Google AJAX fallback (LRU cache)
 │   ├── services/
 │   │   ├── exa_service.py      # Exa API via direct HTTP requests
 │   │   ├── embedding.py        # sentence-transformers encoding + filtering
 │   │   ├── indexing.py         # Relevance index calculation
 │   │   ├── ocr_service.py      # PDF/image text extraction
 │   │   └── site_db.py          # Custom site CRUD
-│   └── models/
-│       └── schemas.py          # Pydantic models
+│   ├── models/
+│   │   └── schemas.py          # Pydantic models + input validation
+│   └── tests/                  # 129 pytest tests (all externals mocked)
 ├── frontend/
 │   ├── index.html              # Vue 3 SPA
 │   ├── script.js               # Vue 3 app logic
@@ -81,8 +85,16 @@ HOST=127.0.0.1
 ## Tech Stack
 
 - **Backend:** Python 3.14, FastAPI, Uvicorn, SQLite
-- **ML:** sentence-transformers 3.4.1, PyTorch 2.11
+- **ML:** sentence-transformers (paraphrase-multilingual-MiniLM-L12-v2), PyTorch
 - **Search:** Exa API (direct HTTP)
-- **Translation:** Google Translate AJAX (free, no key)
+- **Translation:** Yandex Translate + Google Translate AJAX fallback (free, no key)
 - **OCR:** PyPDF2, Tesseract, pdf2image
 - **Frontend:** Vue 3 (CDN), CSS
+- **Testing:** pytest, pytest-asyncio, httpx; CI on GitHub Actions
+
+## Testing
+
+```bash
+pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+cd backend && pytest
+```

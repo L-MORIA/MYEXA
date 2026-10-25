@@ -29,11 +29,14 @@ Multi-language search with optional embedding-based filtering.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `query` | string | — | Search query (required) |
-| `languages` | string[] | ["en","de","it"] | Languages to search |
-| `num_results` | int | 10 | Results per language |
+| `query` | string | — | Search query (required, non-blank) |
+| `languages` | string[] | ["ru"] | Languages to search; one of `ru`, `en`, `de`, `it` |
+| `num_results` | int | 10 | Results per language (**1–50**) |
 | `filter_by_relevance` | bool | true | Apply embedding similarity filter |
 | `search_custom_db` | bool | true | Include custom database results |
+
+**Validation (HTTP 422):** blank/missing `query`, unsupported language codes,
+or `num_results` outside 1–50.
 
 **Response:**
 ```json
@@ -58,9 +61,17 @@ Multi-language search with optional embedding-based filtering.
         "relevance_index": 72.3
       }
     ],
-    "de": [...],
-    "it": [...],
-    "custom_db": [...]
+    "custom_db": [
+      {
+        "id": 1,
+        "url": "https://example.com",
+        "title": "Example",
+        "category": "reference",
+        "tags": "guide, tutorial",
+        "added_at": "2026-05-15 12:00:00",
+        "match_count": 2
+      }
+    ]
   },
   "total_results": 30
 }
@@ -68,9 +79,9 @@ Multi-language search with optional embedding-based filtering.
 
 - `embedding_score` — semantic similarity (0–1), only when `filter_by_relevance=true`
 - `relevance_index` — weighted score (0–100)
-- `translations` — Google Translate AJAX (free, no key required)
-
-**Status:** `200` OK · `500` Server error
+- `translations` — Yandex Translate with Google Translate AJAX fallback (free, no key required)
+- `custom_db` entries — sites matching at least one query word (2+ chars) in
+  URL/title/tags, ranked by `match_count` (number of distinct matched words)
 
 ---
 
@@ -88,6 +99,9 @@ Extract text from PDF or image files.
 | `language` | string | "eng" | Tesseract language code |
 
 **Supported formats:** `.pdf`, `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tiff`
+
+**Limits:** actual body size enforced at 50MB (not just the declared
+Content-Length header); PDFs over 50 pages are rejected before rendering.
 
 **Response:**
 ```json
@@ -109,7 +123,7 @@ curl -X POST http://localhost:3005/api/ocr \
   -F "language=eng"
 ```
 
-**Status:** `200` OK · `400` Invalid file or too large · `500` Error
+**Status:** `200` OK · `400` Invalid file type, malformed/oversized upload · `500` Error (generic message)
 
 ---
 
@@ -205,7 +219,7 @@ Deletes a site by its **numeric ID** (not URL).
 curl -X DELETE http://localhost:3005/api/custom-sites/1
 ```
 
-**Status:** `200` OK · `404` Not found · `500` Server error
+**Status:** `200` OK (with `success: false` when the ID doesn't exist) · `500` Server error
 
 ---
 
@@ -237,9 +251,9 @@ All errors return JSON:
 
 | Code | Meaning |
 |------|---------|
-| 400 | Invalid input (bad file type, too large, etc.) |
-| 404 | Resource not found |
-| 500 | Internal server error |
+| 400 | Invalid input (bad file type, malformed or oversized upload) |
+| 422 | Request body failed validation (search endpoint) |
+| 500 | Internal server error — `detail` is always the generic `"Internal server error"`; the real cause is logged server-side only |
 
 ---
 
@@ -329,4 +343,4 @@ curl -X DELETE http://localhost:3005/api/custom-sites/1
 
 ## Version
 
-**1.0.0** — Last updated: 2026-05-15
+**1.1.0** — Last updated: 2026-10-25
