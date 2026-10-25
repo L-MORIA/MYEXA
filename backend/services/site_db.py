@@ -35,17 +35,35 @@ class SiteDBService:
             return []
 
     def search_in_custom_db(self, query: str) -> List[Dict]:
-        sites = self.get_all_sites()
-        results = []
+        """Match sites by individual query words, ranked by hit count.
 
-        query_lower = query.lower()
-        for site in sites:
-            if (query_lower in site["url"].lower() or
-                query_lower in site["title"].lower() or
-                query_lower in (site.get("tags") or "").lower()):
-                results.append(site)
+        A site matches when at least one query word (2+ chars, case-
+        insensitive) occurs in its URL, title, or tags. Results are ordered
+        by the number of distinct matched words, so a site covering
+        "python async" ranks above one covering only "python".
+        """
+        words = sorted({w for w in query.lower().split() if len(w) >= 2})
+        if not words:
+            return []
 
-        return results
+        matches = []
+        for site in self.get_all_sites():
+            haystack = " ".join(filter(None, [
+                site.get("url") or "",
+                site.get("title") or "",
+                site.get("tags") or "",
+            ])).lower()
+            if not haystack:
+                continue
+
+            hit_count = sum(1 for w in words if w in haystack)
+            if hit_count:
+                entry = dict(site)
+                entry["match_count"] = hit_count
+                matches.append(entry)
+
+        matches.sort(key=lambda s: (-s["match_count"], s["id"]))
+        return matches
 
     def add_from_search_result(self, url: str, title: str, category: str = "search_result") -> bool:
         return self.add_site(url, title, category)
