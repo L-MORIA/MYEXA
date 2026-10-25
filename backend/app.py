@@ -152,8 +152,11 @@ async def search(query_data: SearchQuery):
             "total_results": sum(len(r) for r in ranked_results.values())
         }
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Search failed")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/ocr")
 async def ocr_process(file: UploadFile = File(...), language: str = "eng"):
@@ -162,23 +165,33 @@ async def ocr_process(file: UploadFile = File(...), language: str = "eng"):
     if ext not in allowed_ext:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
 
+    max_bytes = Config.MAX_UPLOAD_BYTES
     content_length = file.headers.get("content-length")
-    if content_length and int(content_length) > 50 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large (max 50MB)")
+    if content_length:
+        try:
+            declared_size = int(content_length)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length header")
+        if declared_size > max_bytes:
+            raise HTTPException(status_code=400, detail="File too large (max 50MB)")
 
     temp_path = None
     try:
+        content = await file.read()
+        if len(content) > max_bytes:
+            raise HTTPException(status_code=400, detail="File too large (max 50MB)")
         suffix = os.path.splitext(file.filename or "upload")[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(await file.read())
+            tmp.write(content)
             temp_path = tmp.name
 
         result = ocr_service.process_file(temp_path, language)
         return result
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("OCR processing failed")
+        raise HTTPException(status_code=500, detail="Internal server error")
     finally:
         if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
@@ -191,8 +204,9 @@ async def add_custom_site(site: AddSiteRequest):
             "success": success,
             "message": "Site added" if success else "Failed to add site"
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to add custom site")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/api/custom-sites")
 async def get_custom_sites():
@@ -204,8 +218,9 @@ async def get_custom_sites():
             "sites": sites,
             "count": len(sites)
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to list custom sites")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.delete("/api/custom-sites/{site_id:int}")
 async def delete_custom_site(site_id: int):
@@ -215,8 +230,9 @@ async def delete_custom_site(site_id: int):
             "success": success,
             "message": "Site deleted" if success else "Failed to delete site"
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to delete custom site")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/api/health")
 async def health():

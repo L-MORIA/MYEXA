@@ -105,3 +105,36 @@ class TestSearchHistory:
         db = Database()
         db.save_search_history("hello", "ru,en", 15)
         # No exception = success (we don't have a getter for history)
+
+
+class TestDatabaseDirectoryCreation:
+    """Regression: a fresh clone crashed because the database directory
+    was never created (README promises it is auto-created)."""
+
+    def test_creates_missing_nested_directory(self, tmp_path, monkeypatch):
+        import os
+        from config import Config
+        nested = str(tmp_path / "deeply" / "nested" / "dir" / "test.db")
+        monkeypatch.setattr(Config, "DATABASE_PATH", nested)
+        Database()  # must not raise
+        assert os.path.isdir(str(tmp_path / "deeply" / "nested" / "dir"))
+
+    def test_works_when_dir_already_exists(self, tmp_db_path, monkeypatch):
+        from config import Config
+        monkeypatch.setattr(Config, "DATABASE_PATH", tmp_db_path)
+        Database()
+        Database()  # second init must also succeed
+
+    def test_query_index_created(self, tmp_db_path, monkeypatch):
+        import sqlite3
+        from config import Config
+        monkeypatch.setattr(Config, "DATABASE_PATH", tmp_db_path)
+        Database()
+        conn = sqlite3.connect(tmp_db_path)
+        indexes = {
+            row[0] for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index'"
+            )
+        }
+        conn.close()
+        assert "idx_search_results_query" in indexes

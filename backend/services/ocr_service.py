@@ -16,6 +16,21 @@ class OCRService:
             pytesseract.pytesseract.tesseract_cmd = self.tesseract_path
 
     def extract_from_pdf(self, file_path: str) -> Dict:
+        # Reject oversized PDFs before any page-by-page work: pdf2image renders
+        # every page into an in-memory image, so a huge PDF is an easy DoS.
+        try:
+            page_count = self._page_count(file_path)
+            if page_count > Config.MAX_PDF_PAGES:
+                return {
+                    "text": "",
+                    "confidence": 0.0,
+                    "method": "Failed",
+                    "success": False,
+                    "error": f"PDF has too many pages ({page_count} > {Config.MAX_PDF_PAGES})",
+                }
+        except Exception as e:
+            logger.warning("Could not read PDF page count: %s", e)
+
         try:
             text = self._extract_pdf_text(file_path)
             if text.strip():
@@ -30,12 +45,18 @@ class OCRService:
             logger.error("PDF OCR failed: %s", e)
             return {"text": "", "confidence": 0.0, "method": "Failed", "success": False, "error": str(e)}
 
+    def _page_count(self, file_path: str) -> int:
+        with open(file_path, "rb") as f:
+            return len(PyPDF2.PdfReader(f).pages)
+
     def _extract_pdf_text(self, file_path: str) -> str:
         text = ""
         with open(file_path, "rb") as f:
             reader = PyPDF2.PdfReader(f)
             for page in reader.pages:
-                text += page.extract_text()
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text
         return text
 
     def _extract_pdf_ocr(self, file_path: str) -> str:

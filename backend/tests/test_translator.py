@@ -137,3 +137,55 @@ class TestTranslateToMultiple:
             t.translate_to_multiple("тест", ["ru", "en"])
             # translate() was called for "en" but NOT for "ru"
             spy.assert_any_call("тест", "en")
+
+
+class TestCacheEviction:
+    """Regression: the translation cache grew without bound (memory leak)."""
+
+    def test_cache_is_capped(self, monkeypatch):
+        import api.translator as tr_mod
+        monkeypatch.setattr(tr_mod, "MAX_CACHE_ENTRIES", 3)
+
+        t = Translator()
+        monkeypatch.setattr(t, "_translate_yandex", lambda text, target: None)
+        monkeypatch.setattr(t, "_translate_google", lambda text, target: None)
+
+        for i in range(5):
+            t.translate(f"текст {i}", "en")
+
+        assert len(t._cache) <= 3
+
+    def test_oldest_entries_evicted_first(self, monkeypatch):
+        import api.translator as tr_mod
+        monkeypatch.setattr(tr_mod, "MAX_CACHE_ENTRIES", 3)
+
+        t = Translator()
+        monkeypatch.setattr(t, "_translate_yandex", lambda text, target: None)
+        monkeypatch.setattr(t, "_translate_google", lambda text, target: None)
+
+        t.translate("первый", "en")
+        t.translate("второй", "en")
+        t.translate("третий", "en")
+        t.translate("четвёртый", "en")
+
+        assert ("первый", "en") not in t._cache       # oldest evicted
+        assert ("четвёртый", "en") in t._cache        # newest kept
+        assert ("третий", "en") in t._cache
+
+    def test_cache_hit_refreshes_recency(self, monkeypatch):
+        import api.translator as tr_mod
+        monkeypatch.setattr(tr_mod, "MAX_CACHE_ENTRIES", 3)
+
+        t = Translator()
+        monkeypatch.setattr(t, "_translate_yandex", lambda text, target: None)
+        monkeypatch.setattr(t, "_translate_google", lambda text, target: None)
+
+        t.translate("первый", "en")
+        t.translate("второй", "en")
+        t.translate("первый", "en")   # refresh — must survive the eviction below
+        t.translate("третий", "en")
+        t.translate("четвёртый", "en")  # evicts the LRU entry ("второй")
+
+        assert ("первый", "en") in t._cache
+        assert ("второй", "en") not in t._cache
+        assert ("четвёртый", "en") in t._cache

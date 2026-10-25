@@ -74,7 +74,8 @@ EXA_API_KEY=your_key_here
 DATABASE_PATH=./database/myexa.db
 LOG_LEVEL=INFO
 PORT=3005
-HOST=0.0.0.0
+# 127.0.0.1 = local only (recommended); 0.0.0.0 exposes the API to the network
+HOST=127.0.0.1
 ```
 
 ## Tech Stack

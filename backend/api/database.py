@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
@@ -7,6 +8,9 @@ from config import Config
 class Database:
     def __init__(self):
         self.db_path = Config.DATABASE_PATH
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         self.init_db()
 
     @contextmanager
@@ -48,6 +52,8 @@ class Database:
                     results_count INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
+                CREATE INDEX IF NOT EXISTS idx_search_results_query
+                    ON search_results(query);
             ''')
     
     def save_result(self, query: str, url: str, title: str, content: str,

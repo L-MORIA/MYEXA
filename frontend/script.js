@@ -59,12 +59,13 @@ createApp({
                 });
                 
                 const data = await response.json();
-                if (data.success) {
-                    this.searchResults = data.results;
-                    this.activeTab = 'Русский';
-                } else {
-                    alert('Search failed');
+                if (!response.ok || !data.success) {
+                    const detail = data.detail || `Search failed (HTTP ${response.status})`;
+                    alert(typeof detail === 'string' ? detail : 'Search failed');
+                    return;
                 }
+                this.searchResults = data.results;
+                this.activeTab = this.tabKeyMap[this.selectedLanguages[0]] || 'Русский';
             } catch (error) {
                 console.error('Search error:', error);
                 alert('Error performing search: ' + error.message);
@@ -99,7 +100,7 @@ createApp({
                     this.searchQuery = data.text.substring(0, 500);
                     alert('OCR completed! Text extracted and added to search box.');
                 } else {
-                    alert('OCR failed: ' + data.error);
+                    alert('OCR failed: ' + (data.error || 'unknown error'));
                 }
             } catch (error) {
                 console.error('OCR error:', error);

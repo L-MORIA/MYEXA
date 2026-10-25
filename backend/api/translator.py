@@ -1,11 +1,16 @@
 import logging
 import uuid
+from collections import OrderedDict
 
 import requests
 
 from config import Config
 
 logger = logging.getLogger(__name__)
+
+# Cap the translation cache so a long-running server doesn't grow it without
+# bound (each unique query × target pair is stored forever otherwise).
+MAX_CACHE_ENTRIES = 1024
 
 # Map our internal language codes to the codes expected by the providers.
 # Yandex and Google use the same ISO codes for these languages.
@@ -27,7 +32,7 @@ def _new_yandex_sid() -> str:
 
 class Translator:
     def __init__(self):
-        self._cache = {}
+        self._cache: OrderedDict = OrderedDict()
         self._source = Config.SOURCE_LANGUAGE
         self._sid = _new_yandex_sid()
 
@@ -51,6 +56,7 @@ class Translator:
 
         cache_key = (text, target)
         if cache_key in self._cache:
+            self._cache.move_to_end(cache_key)
             return self._cache[cache_key]
 
         result = self._translate_yandex(text, target)
@@ -60,6 +66,8 @@ class Translator:
             result = text
 
         self._cache[cache_key] = result
+        if len(self._cache) > MAX_CACHE_ENTRIES:
+            self._cache.popitem(last=False)
         return result
 
     def _translate_yandex(self, text: str, target: str) -> str | None:

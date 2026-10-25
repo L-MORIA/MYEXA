@@ -14,7 +14,12 @@ def _get_db_path():
     path = os.getenv("DATABASE_PATH", "./database/myexa.db")
     if not os.path.isabs(path):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        path = os.path.join(base_dir, path.lstrip("./"))
+        # Strip only a leading "./" (or ".\") — str.lstrip("./") would also
+        # eat leading dots from names like ".hidden/db.sqlite".
+        cleaned = path.replace("\\", "/")
+        if cleaned.startswith("./"):
+            cleaned = cleaned[2:]
+        path = os.path.join(base_dir, cleaned)
     return os.path.normpath(path)
 
 
@@ -30,7 +35,10 @@ def _parse_port() -> int:
 class Config:
     EXA_API_KEY = os.getenv("EXA_API_KEY", "")
     DATABASE_PATH = _get_db_path()
-    HOST = os.getenv("HOST", "0.0.0.0")
+    # Bind to loopback by default: this is a local tool, and binding 0.0.0.0
+    # exposes the unauthenticated API (search, OCR upload, site CRUD) to the
+    # whole network. Set HOST=0.0.0.0 explicitly if LAN access is intended.
+    HOST = os.getenv("HOST", "127.0.0.1")
     PORT = _parse_port()
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     # Multilingual model: supports ru/de/it/en cross-lingual comparison.
@@ -40,6 +48,9 @@ class Config:
     RELEVANCE_THRESHOLD = 0.3
     OCR_ENABLED = True
     TESSERACT_PATH = os.getenv("TESSERACT_PATH", "tesseract")
+    # Upload / OCR abuse limits (the endpoints are unauthenticated).
+    MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+    MAX_PDF_PAGES = 50
 
     # Source language used when translating the user query.
     SOURCE_LANGUAGE = os.getenv("SOURCE_LANGUAGE", "ru")
