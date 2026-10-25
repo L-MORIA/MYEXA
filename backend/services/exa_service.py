@@ -1,7 +1,7 @@
 import logging
 import requests
 from config import Config
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class ExaService:
         return resp.json()
 
     def search(self, query: str, num_results: int = 10, language: str = "en",
-               include_domains: List[str] = None) -> List[Dict]:
+               include_domains: Optional[List[str]] = None) -> List[Dict]:
         # Exa has no native `lang` parameter; national domains are passed in by
         # the caller (from Config.LANGUAGES) to bias results toward the target
         # language's corner of the web.

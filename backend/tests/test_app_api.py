@@ -5,11 +5,10 @@ All external services are monkeypatched so tests run without network.
 
 import os
 import sys
-import tempfile
 
 import pytest
 from httpx import AsyncClient, ASGITransport
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 

@@ -6,11 +6,9 @@ are mocked so tests run without network access and without downloading models.
 
 import os
 import sys
-import tempfile
 from unittest.mock import patch, MagicMock
 
 import pytest
-import pytest_asyncio
 
 # Ensure backend package is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

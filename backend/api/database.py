@@ -1,8 +1,7 @@
 import os
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
-from typing import List, Optional
+from typing import List
 from config import Config
 
 class Database:
