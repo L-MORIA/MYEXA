@@ -90,6 +90,19 @@ createApp({
             return '';
         },
 
+        emptyStateMessage(code) {
+            // The empty state must say WHY it is empty: a provider outage and a
+            // relevance threshold are completely different problems.
+            const meta = this.searchMeta?.[code];
+            if (meta?.error) {
+                return 'The search backend did not return results for this language.';
+            }
+            if (meta?.filtered_out) {
+                return 'Nothing passed the relevance threshold for this language.';
+            }
+            return 'No results found.';
+        },
+
         async performSearch() {
             if (!this.searchQuery.trim()) {
                 this.notify('Please enter a search query');

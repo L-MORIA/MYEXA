@@ -694,6 +694,27 @@ async def test_root_serves_frontend(api_client):
 
 
 @pytest.mark.asyncio
+async def test_index_html_is_not_cached(api_client):
+    """The HTML references the versioned asset URLs (?v=N).
+
+    A cached index.html keeps pointing at the previous asset version, so
+    frontend updates only arrive after a manual hard reload.
+    """
+    resp = await api_client.get("/")
+    cache_control = resp.headers.get("cache-control", "")
+    assert "no-cache" in cache_control or "no-store" in cache_control
+    assert "must-revalidate" in cache_control
+
+
+@pytest.mark.asyncio
+async def test_frontend_assets_are_versioned(api_client):
+    """The served HTML must reference versioned assets."""
+    resp = await api_client.get("/")
+    assert "script.js?v=" in resp.text
+    assert "style.css?v=" in resp.text
+
+
+@pytest.mark.asyncio
 async def test_favicon_route(api_client):
     resp = await api_client.get("/favicon.ico")
     assert resp.status_code in (200, 307)

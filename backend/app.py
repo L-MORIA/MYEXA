@@ -78,14 +78,24 @@ if os.path.exists(frontend_path):
 async def root():
     frontend_index = os.path.join(frontend_path, "index.html")
     if os.path.exists(frontend_index):
-        return FileResponse(frontend_index)
+        # The HTML must never be cached: it references the versioned asset URLs
+        # (?v=N). A cached index.html keeps pointing at the previous version,
+        # so frontend updates only arrive after a manual hard reload.
+        return FileResponse(
+            frontend_index,
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
     return {"message": "MYEXA API running on port 3005"}
 
 @app.get("/favicon.ico")
 async def favicon():
     favicon_path = os.path.join(frontend_path, "favicon.svg")
     if os.path.exists(favicon_path):
-        return FileResponse(favicon_path, media_type="image/svg+xml")
+        return FileResponse(
+            favicon_path,
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
     return RedirectResponse(url="/static/favicon.svg")
 
 @app.post("/api/search")
