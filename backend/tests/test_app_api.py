@@ -935,3 +935,34 @@ async def test_health_reports_the_fallback_as_active(api_client, client):
     assert data["checks"]["exa"]["ok"] is False
     assert data["checks"]["searxng"]["ok"] is True
 
+
+
+@pytest.mark.asyncio
+async def test_ocr_language_from_a_form_field_is_used(api_client, client):
+    """The frontend sends the language as a form field — it must be read.
+
+    Only a query parameter was read before, so the language chosen in the
+    interface was ignored and every scan was read with the English model.
+    """
+    mocks, _ = client
+    mocks["ocr_service"].process_file.return_value = {
+        "text": "Привет", "confidence": 0.85, "method": "Tesseract", "success": True,
+    }
+
+    resp = await api_client.post("/api/ocr", files={"file": ("doc.png", b"PNG", "image/png")},
+                                 data={"language": "rus"})
+    assert resp.status_code == 200
+    assert mocks["ocr_service"].process_file.call_args.args[1] == "rus"
+
+
+@pytest.mark.asyncio
+async def test_ocr_language_from_a_query_parameter_is_used(api_client, client):
+    mocks, _ = client
+    mocks["ocr_service"].process_file.return_value = {
+        "text": "Hello", "confidence": 0.85, "method": "Tesseract", "success": True,
+    }
+
+    resp = await api_client.post("/api/ocr?language=deu",
+                                 files={"file": ("doc.png", b"PNG", "image/png")})
+    assert resp.status_code == 200
+    assert mocks["ocr_service"].process_file.call_args.args[1] == "deu"

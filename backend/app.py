@@ -18,7 +18,7 @@ try:
 except RuntimeError:
     pass
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -334,7 +334,27 @@ async def search(query_data: SearchQuery):
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 @app.post("/api/ocr")
-async def ocr_process(file: UploadFile = File(...), language: str = "eng"):
+async def ocr_process(
+    file: UploadFile = File(...),
+    language: str = Form("eng"),
+    request: Request = None,
+):
+    """Extract the text of an uploaded PDF or image.
+
+    The language may arrive as a form field (that is how the frontend sends
+    it) or as a query parameter. Only the form field was read before, so the
+    language chosen in the interface was silently ignored and a Russian scan
+    was read with the English model.
+    """
+    if not isinstance(language, str):
+        # A direct call (not through the app) leaves the Form object in place.
+        language = "eng"
+
+    query_params = getattr(request, "query_params", None)
+    query_language = query_params.get("language") if query_params else None
+    if query_language:
+        language = query_language
+
     allowed_ext = {".pdf", ".jpg", ".jpeg", ".png", ".bmp", ".tiff"}
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in allowed_ext:

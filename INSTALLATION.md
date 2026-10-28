@@ -18,7 +18,12 @@ Advanced multi-language search engine with embedding-based filtering, OCR, and c
 - **Python 3.14** (3.14 recommended; 3.11+ should work)
 - **pip** (Python package manager)
 - **Exa API key** — get one at https://exa.ai
-- **Tesseract OCR** *(optional)* — for image/PDF OCR
+- **Tesseract OCR** *(optional)* — for image/PDF OCR:
+  - Tesseract: `C:\Program Files\Tesseract-OCR` (must be on PATH)
+  - Poppler (`pdftoppm`, for rendering PDF pages to images): on PATH as well.
+    The Calibre installation already ships it (`C:\Program Files\Calibre2\app\bin`).
+  - Tesseract ships the language models; `rus`, `eng`, `deu` and `ita` are
+    included in the standard installation.
 
 ## Installation
 

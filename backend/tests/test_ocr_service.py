@@ -136,3 +136,41 @@ class TestInit:
             with patch("services.ocr_service.pytesseract") as mock_pt:
                 OCRService()
                 assert mock_pt.pytesseract.tesseract_cmd.__class__ is not str
+
+
+class TestOcrLanguage:
+    """The requested language has to reach Tesseract.
+
+    The PDF branch used to call image_to_string() without the language, so a
+    Russian scan was read with the default English model and came out as
+    garbage.
+    """
+
+    def test_pdf_path_forwards_the_language(self, svc):
+        with patch.object(svc, "_page_count", return_value=1):
+            with patch.object(svc, "_extract_pdf_text", return_value=""):
+                with patch.object(svc, "_extract_pdf_ocr", return_value="Привет") as mock_ocr:
+                    result = svc.extract_from_pdf("scan.pdf", "rus")
+
+        assert result["success"] is True
+        assert mock_ocr.call_args.args[1] == "rus"
+
+    def test_process_file_forwards_the_language_to_the_pdf_branch(self, svc, tmp_path):
+        pdf = tmp_path / "scan.pdf"
+        pdf.write_bytes(b"%PDF")
+
+        with patch.object(svc, "extract_from_pdf", return_value={"text": "", "success": True}) as mock_pdf:
+            svc.process_file(str(pdf), "rus")
+
+        assert mock_pdf.call_args.args[1] == "rus"
+
+    def test_image_to_string_is_called_with_the_language(self, svc, tmp_path):
+        image = tmp_path / "scan.png"
+        image.write_bytes(b"PNG")
+
+        with patch("services.ocr_service.Image.open", return_value=MagicMock()):
+            with patch("services.ocr_service.pytesseract.image_to_string",
+                       return_value="Привет") as mock_ocr:
+                svc.extract_from_image(str(image), "rus")
+
+        assert mock_ocr.call_args.kwargs["lang"] == "rus"

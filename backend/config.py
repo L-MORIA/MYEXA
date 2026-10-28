@@ -96,6 +96,9 @@ class Config:
     # A PDF with more pages is rejected before it is rendered: every page
     # becomes an image in memory, so a 500-page file is a denial of service.
     MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "50"))
+    # Resolution the PDF pages are rendered at before the OCR reads them.
+    # pdf2image defaults to 72 dpi, which is too coarse for small print.
+    OCR_RENDER_DPI = int(os.getenv("OCR_RENDER_DPI", "200"))
     # Maximum size of an uploaded file, checked against the real body size.
     MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
 

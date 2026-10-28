@@ -15,7 +15,7 @@ class OCRService:
         if self.tesseract_path != "tesseract":
             pytesseract.pytesseract.tesseract_cmd = self.tesseract_path
 
-    def extract_from_pdf(self, file_path: str) -> dict:
+    def extract_from_pdf(self, file_path: str, language: str = "eng") -> dict:
         page_count = self._page_count(file_path)
         if page_count is not None and page_count > Config.MAX_PDF_PAGES:
             # Rendering every page of a huge PDF is a denial of service: a
@@ -38,7 +38,7 @@ class OCRService:
             logger.warning("PyPDF2 extraction failed, falling back to OCR: %s", e)
 
         try:
-            text = self._extract_pdf_ocr(file_path)
+            text = self._extract_pdf_ocr(file_path, language)
             return {"text": text, "confidence": 0.85, "method": "Tesseract", "success": True}
         except Exception as e:
             logger.error("PDF OCR failed: %s", e)
@@ -57,13 +57,18 @@ class OCRService:
                     text += page_text
         return text
 
-    def _extract_pdf_ocr(self, file_path: str) -> str:
+    def _extract_pdf_ocr(self, file_path: str, language: str = "eng") -> str:
         from pdf2image import convert_from_path
 
-        images = convert_from_path(file_path)
+        # 200 dpi is the usual compromise for OCR: pdf2image defaults to 72,
+        # which is too coarse for small print and costs accuracy, while 300
+        # multiplies the rendering time and the memory for no gain.
+        images = convert_from_path(file_path, dpi=Config.OCR_RENDER_DPI)
         text = ""
         for image in images:
-            text += pytesseract.image_to_string(image)
+            # The language has to be passed on: without it a Russian scan
+            # would be read with the default English model.
+            text += pytesseract.image_to_string(image, lang=language)
         return text
 
     def _page_count(self, file_path: str) -> int | None:
@@ -90,7 +95,7 @@ class OCRService:
 
         ext = os.path.splitext(file_path)[1].lower()
         if ext == ".pdf":
-            return self.extract_from_pdf(file_path)
+            return self.extract_from_pdf(file_path, language)
         if ext in (".jpg", ".jpeg", ".png", ".bmp", ".tiff"):
             return self.extract_from_image(file_path, language)
         return {"text": "", "confidence": 0.0, "method": "Failed", "success": False, "error": f"Unsupported format: {ext}"}
