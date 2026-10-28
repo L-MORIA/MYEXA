@@ -163,6 +163,19 @@ Verify your key in `.env`. Without a valid key the search endpoint still
 responds 200 — Exa results are simply empty (check the server log for
 `Exa API error 403`).
 
+**HTTP 403 on every request** is not a key problem: Cloudflare blocks whole
+IP ranges, not single keys. The search keeps working through the local
+SearXNG fallback (see the README) — Docker Desktop has to be running for it.
+To find out when the block is lifted:
+
+```bash
+python diagnostics/exa_block_watch.py
+```
+
+The script prints `STATUS=BLOCKED` or `STATUS=RECOVERED` and stores the last
+verdict in `diagnostics/exa_block_state.json`. It also runs once an hour on
+its own and stays silent while the block holds.
+
 ### Embedding model fails
 
 The model downloads on first run (~90MB). Ensure internet access. If `[Errno 22]` occurs, set:

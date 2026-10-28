@@ -46,6 +46,18 @@ powershell -ExecutionPolicy Bypass -File docker\stop-searxng.ps1    # stop
 `GET /api/health?deep=true` reports the active provider and whether the
 search is available.
 
+If the Exa API is blocked (Cloudflare answers 403 for whole IP ranges), a
+watcher reports when the block is lifted:
+
+```bash
+python diagnostics/exa_block_watch.py
+```
+
+It prints `STATUS=BLOCKED` or `STATUS=RECOVERED` and remembers the last
+verdict in `diagnostics/exa_block_state.json`, so a repeat can be told from a
+change. It runs once an hour automatically; while the block holds, it stays
+silent.
+
 ## Project Structure
 
 ```
