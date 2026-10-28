@@ -15,7 +15,10 @@ def _get_db_path():
     path = os.getenv("DATABASE_PATH", "./database/myexa.db")
     if not os.path.isabs(path):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        path = os.path.join(base_dir, path.lstrip("./"))
+        # Only a leading "./" is removed. str.lstrip("./") strips every leading
+        # dot and slash, so ".hidden/db.sqlite" became "hidden/db.sqlite".
+        relative = path[2:] if path.startswith("./") else path
+        path = os.path.join(base_dir, relative)
     return os.path.normpath(path)
 
 
@@ -54,7 +57,10 @@ class Config:
     SEARXNG_CACHE_SIZE = int(os.getenv("SEARXNG_CACHE_SIZE", "64"))
 
     DATABASE_PATH = _get_db_path()
-    HOST = os.getenv("HOST", "0.0.0.0")
+    # Bound to the loopback interface by default: the API has no
+    # authentication, so listening on every interface exposes it to the whole
+    # network. Set HOST=0.0.0.0 in .env to allow LAN access on purpose.
+    HOST = os.getenv("HOST", "127.0.0.1")
     PORT = _parse_port()
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     # Multilingual model: supports ru/de/it/en cross-lingual comparison.
@@ -87,6 +93,11 @@ class Config:
 
     OCR_ENABLED = True
     TESSERACT_PATH = os.getenv("TESSERACT_PATH", "tesseract")
+    # A PDF with more pages is rejected before it is rendered: every page
+    # becomes an image in memory, so a 500-page file is a denial of service.
+    MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "50"))
+    # Maximum size of an uploaded file, checked against the real body size.
+    MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
 
     # Source language used when translating the user query.
     SOURCE_LANGUAGE = os.getenv("SOURCE_LANGUAGE", "ru")
@@ -139,6 +150,7 @@ class Config:
         "developer.mozilla.org",
         "pubmed.ncbi.nlm.nih.gov",
         "nature.com",
+        "python.org",
     ]
 
     # National sources per language. Without these, a Russian result on

@@ -11,8 +11,13 @@ class ProviderError(RuntimeError):
     """Base class for provider failures (network, HTTP status, bad answer)."""
 
 
-class ProviderUnavailable(RuntimeError):
-    """Raised when every configured provider failed."""
+class ProviderUnavailable(ProviderError):
+    """Raised when every configured provider failed.
+
+    It is a ``ProviderError`` because it carries a provider failure message —
+    the application shows that reason to the user instead of a bare "no
+    results".
+    """
 
 
 class SearchProvider:

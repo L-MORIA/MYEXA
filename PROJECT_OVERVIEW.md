@@ -48,8 +48,8 @@
 │                           ↓                                 │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  External APIs                                       │  │
-│  │  Exa (search) · Google Translate AJAX (translation)  │  │
-│  │  LibreTranslate (fallback) · Tesseract (local OCR)   │  │
+│  │  Exa (search) · Tesseract (local OCR)                 │  │
+│  │  Yandex Translate (primary) + Google AJAX (fallback)  │  │
 │  └──────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -58,19 +58,20 @@
 
 | Metric | Value |
 |--------|-------|
-| Backend files | 10 |
+| Backend source files | 10 |
+| Test files | 9 (129 tests) |
 | Frontend files | 4 (incl. favicon) |
-| API endpoints | 7 |
-| Database tables | 3 |
-| Dependencies | 15 |
-| Languages | 3 (EN, DE, IT) |
+| API endpoints | 8 (incl. /static mount) |
+| Database tables | 3 (+ index on search_results.query) |
+| Runtime dependencies | 13 (dead exa-py/sqlalchemy/google-cloud-translate removed) |
+| Languages | 4 (RU, EN, DE, IT) |
 | OCR formats | 5 (PDF, JPG, PNG, BMP, TIFF) |
 
 ## Data Flow
 
 ### Search
 ```
-Query → Translate (Google AJAX) → Exa API (parallel per language)
+Query → Validate (422 on bad input) → Translate (Yandex/Google, LRU cache) → Exa API (per language)
   → Embedding filter (sentence-transformers, optional)
   → Relevance index (domain · freshness · custom boost)
   → Save to DB → Return to UI
@@ -104,7 +105,7 @@ Upload → Validate extension + size → tempfile safe path
 | Python | 3.8+ | 3.14 (only version available) |
 | sentence-transformers | 2.2.2 | 3.4.1 (fixes C-level crash on 3.14) |
 | exa-py library | used directly | replaced with raw HTTP requests (library incompatible with API) |
-| Translation | LibreTranslate / google-cloud-translate | Google Translate AJAX (free, no key) + LibreTranslate fallback |
+| Translation | LibreTranslate / google-cloud-translate | Yandex Translate + Google AJAX fallback (free, no key) |
 | Delete site | by URL (path param) | by ID (path param) |
 | Add site | query params | JSON body (Pydantic model) |
 | OCR temp path | `/tmp/{filename}` | `tempfile.NamedTemporaryFile` (Windows compatible) |
@@ -122,21 +123,27 @@ Upload → Validate extension + size → tempfile safe path
 ```
 fastapi>=0.115.0            uvicorn>=0.32.0
 sentence-transformers>=3.4  torch>=2.9.0
-exa-py==1.0.1               PyPDF2==3.0.1
-pytesseract>=0.3.10         Pillow>=11.2.0
-pdf2image==1.17.0           python-multipart==0.0.25
-requests==2.31.0            pydantic>=2.10.0
-python-dotenv==1.0.0        sqlalchemy==2.0.23
-google-cloud-translate>=3.17
+PyPDF2==3.0.1               pytesseract>=0.3.10
+Pillow>=11.2.0              pdf2image==1.17.0
+python-multipart==0.0.25    requests==2.31.0
+pydantic>=2.10.0            python-dotenv==1.0.0
 ```
+
+Removed 2026-10-25 (never imported by the code): `exa-py`, `sqlalchemy`,
+`google-cloud-translate`.
 
 ## Security Notes
 
+- Binds to `127.0.0.1` by default (LAN only via explicit `HOST=0.0.0.0`)
 - CORS restricted to `localhost:3005`
-- File upload: extension whitelist + size limit + `tempfile` (no path traversal)
+- File upload: extension whitelist + enforced 50MB body limit + 50-page PDF cap + `tempfile` (no path traversal)
+- Request validation: blank queries / unknown languages / `num_results` outside 1–50 → 422
 - SQL: fully parameterized queries (no injection)
+- 500 responses are generic; details go to the server log only
 - `.env` excluded via `.gitignore`
 - No authentication (add if deploying publicly)
+
+See SECURITY_AUDIT.md for the full 2026-10-25 audit.
 
 ## Quick Start
 
@@ -147,4 +154,4 @@ python backend/app.py
 
 Or double-click `MYEXA.lnk` on the desktop.
 
-**Version:** 1.0.0 — Last updated: 2026-05-15
+**Version:** 1.1.0 — Last updated: 2026-10-25

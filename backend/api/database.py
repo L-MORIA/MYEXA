@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from contextlib import contextmanager
 
@@ -7,6 +8,11 @@ from config import Config
 class Database:
     def __init__(self):
         self.db_path = Config.DATABASE_PATH
+        # A fresh clone has no database directory yet — without this the
+        # first start crashed with "unable to open database file".
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         self.init_db()
 
     @contextmanager
@@ -49,6 +55,8 @@ class Database:
                     results_count INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
+                CREATE INDEX IF NOT EXISTS idx_search_results_query
+                    ON search_results(query);
             ''')
         self._migrate_search_results()
 

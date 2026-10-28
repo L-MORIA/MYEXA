@@ -384,12 +384,14 @@ async def test_search_uses_only_the_first_highlight(api_client, client):
 
 @pytest.mark.asyncio
 async def test_search_returns_500_on_service_failure(api_client, client):
+    """An unexpected failure is a generic 500 — its text must not leak."""
     mocks, _ = client
     mocks["translator"].translate_to_multiple.side_effect = RuntimeError("translator down")
 
     resp = await api_client.post("/api/search", json={"query": "q", "languages": ["ru"]})
     assert resp.status_code == 500
-    assert "translator down" in resp.json()["detail"]
+    assert resp.json()["detail"] == "Internal server error"
+    assert "translator down" not in resp.text
 
 
 @pytest.mark.asyncio
@@ -800,7 +802,10 @@ async def test_ocr_returns_500_when_service_fails(api_client, client):
         "file": ("doc.pdf", b"%PDF", "application/pdf"),
     })
     assert resp.status_code == 500
-    assert "tesseract missing" in resp.json()["detail"]
+    # The internal error text must not reach the client — it can leak paths
+    # and driver messages. It goes to the log instead.
+    assert "tesseract missing" not in resp.json()["detail"]
+    assert resp.json()["detail"] == "OCR processing failed"
 
 
 @pytest.mark.asyncio

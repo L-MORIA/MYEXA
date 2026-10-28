@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SearchQuery(BaseModel):
@@ -11,6 +11,16 @@ class SearchQuery(BaseModel):
     # Optional override of the relevance threshold (0..1). When omitted the
     # per-language default from Config is used.
     relevance_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+
+    @field_validator("query")
+    @classmethod
+    def _query_must_not_be_blank(cls, value: str) -> str:
+        # A query of spaces passes min_length but is useless: it reaches the
+        # search engine and costs a request.
+        if not value.strip():
+            raise ValueError("query must not be blank")
+        return value
+
 
 class FilteringRules(BaseModel):
     """Weights of the relevance index. The sum must stay at 100."""

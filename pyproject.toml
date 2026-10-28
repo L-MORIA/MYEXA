@@ -24,7 +24,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"backend/tests/*" = ["B011", "E402"]
+# F401/F811: a test module may import fixtures from another module, and an
+# unused import there is not a defect.
+"backend/tests/*" = ["B011", "E402", "F401", "F811"]
 # app.py must extend sys.path before importing the backend packages.
 "backend/app.py" = ["E402"]
 

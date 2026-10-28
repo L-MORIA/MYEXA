@@ -1,5 +1,12 @@
 # MYEXA Project - Completion Summary
 
+> ⚠️ **Исторический документ** (запись о состоянии проекта на дату создания).
+> Актуальное состояние: см. `README.md`, `API.md`, `SECURITY_AUDIT.md` (аудит 2026-10-25).
+> С тех пор изменено: языки RU+EN+DE+IT, переводчик Yandex+Google (без LibreTranslate),
+> модель paraphrase-multilingual-MiniLM-L12-v2, HOST по умолчанию 127.0.0.1,
+> валидация API, лимиты OCR, индекс релевантности 0–100, 129 тестов.
+
+
 **Project**: MYEXA - Advanced Multi-Language Search Engine  
 **Status**: ✅ Complete and Ready for Use  
 **Date**: 2026-04-08  
@@ -236,7 +243,7 @@ EXA_API_KEY=your_api_key_here
 DATABASE_PATH=./database/myexa.db
 LOG_LEVEL=INFO
 PORT=3005
-HOST=0.0.0.0
+HOST=127.0.0.1  # (исторически было 0.0.0.0; теперь по умолчанию 127.0.0.1)
 TESSERACT_PATH=tesseract
 ```
 

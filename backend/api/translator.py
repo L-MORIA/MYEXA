@@ -20,6 +20,10 @@ YANDEX_URL = "https://translate.yandex.net/api/v1/tr.json/translate"
 # Unofficial Google endpoint, kept as a secondary fallback.
 GOOGLE_URL = "https://translate.googleapis.com/translate_a/single"
 
+# The translation cache is capped: on a long-running server an unbounded
+# dict grows until the process runs out of memory.
+MAX_CACHE_ENTRIES = 1024
+
 # Request timeout and retry policy. Both providers are unofficial endpoints
 # that occasionally throttle, so a single failed request must not degrade the
 # search into an untranslated query.
@@ -58,6 +62,9 @@ class Translator:
 
         cache_key = (text, target)
         if cache_key in self._cache:
+            # A hit refreshes the recency: the least recently used entry is
+            # the one that is dropped.
+            self._cache[cache_key] = self._cache.pop(cache_key)
             return self._cache[cache_key]
 
         result = self._translate_yandex(text, target)
@@ -67,7 +74,14 @@ class Translator:
             result = text
 
         self._cache[cache_key] = result
+        self._trim_cache()
         return result
+
+    def _trim_cache(self) -> None:
+        """Drop the least recently used entries when the cache grows too large."""
+        while len(self._cache) > MAX_CACHE_ENTRIES:
+            oldest = next(iter(self._cache))
+            del self._cache[oldest]
 
     @staticmethod
     def _get_with_retry(url: str, params: dict) -> requests.Response | None:

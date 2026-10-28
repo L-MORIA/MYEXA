@@ -58,6 +58,8 @@ jobs:
           python -m py_compile backend/api/database.py
           python -m py_compile backend/api/translator.py
           python -m py_compile backend/services/exa_service.py
+          python -m py_compile backend/services/search_provider.py
+          python -m py_compile backend/services/searxng_service.py
           python -m py_compile backend/services/embedding.py
           python -m py_compile backend/services/indexing.py
           python -m py_compile backend/services/language_detector.py

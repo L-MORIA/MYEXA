@@ -35,7 +35,7 @@ from services.exa_service import ExaError, ExaService
 from services.indexing import IndexingService
 from services.language_detector import LanguageDetector
 from services.ocr_service import OCRService
-from services.search_provider import ProviderUnavailable
+from services.search_provider import ProviderError, ProviderUnavailable
 from services.searxng_service import SearxngError, SearxngService
 from services.site_db import SiteDBService
 
@@ -181,9 +181,15 @@ async def search(query_data: SearchQuery):
         fallback_reasons = {}
         for lang, outcome in zip(languages, settled, strict=True):
             if isinstance(outcome, BaseException):
-                logger.error("Search provider failed for %s: %s", lang, outcome)
-                provider_errors[lang] = str(outcome)
-                all_results[lang] = []
+                if isinstance(outcome, ProviderError):
+                    logger.error("Search provider failed for %s: %s", lang, outcome)
+                    provider_errors[lang] = str(outcome)
+                    all_results[lang] = []
+                else:
+                    # An unexpected error is a defect, not a provider outage.
+                    # Reporting it as "the backend is down" would hide the
+                    # cause, and its text could leak internals to the client.
+                    raise outcome
             else:
                 _, results, provider, fallback_reason = outcome
                 all_results[lang] = results
@@ -324,7 +330,8 @@ async def search(query_data: SearchQuery):
         # own status code instead of being flattened into a generic 500.
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Request failed")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 @app.post("/api/ocr")
 async def ocr_process(file: UploadFile = File(...), language: str = "eng"):
@@ -333,15 +340,36 @@ async def ocr_process(file: UploadFile = File(...), language: str = "eng"):
     if ext not in allowed_ext:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
 
+    max_bytes = Config.MAX_UPLOAD_BYTES
     content_length = file.headers.get("content-length")
-    if content_length and int(content_length) > 50 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large (max 50MB)")
+    if content_length:
+        try:
+            declared = int(content_length)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=400, detail="Invalid Content-Length header"
+            ) from None
+        if declared > max_bytes:
+            raise HTTPException(
+                status_code=400, detail=f"File too large (max {max_bytes // (1024 * 1024)}MB)"
+            )
 
     temp_path = None
     try:
         suffix = os.path.splitext(file.filename or "upload")[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(await file.read())
+            # The declared length is a hint, not a guarantee: the body itself
+            # is measured while it is read, so a lying header cannot get a
+            # huge file past the limit.
+            written = 0
+            while chunk := await file.read(1024 * 1024):
+                written += len(chunk)
+                if written > max_bytes:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"File too large (max {max_bytes // (1024 * 1024)}MB)",
+                    )
+                tmp.write(chunk)
             temp_path = tmp.name
 
         result = ocr_service.process_file(temp_path, language)
@@ -349,7 +377,8 @@ async def ocr_process(file: UploadFile = File(...), language: str = "eng"):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("OCR processing failed")
+        raise HTTPException(status_code=500, detail="OCR processing failed") from e
     finally:
         if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
@@ -363,7 +392,8 @@ async def add_custom_site(site: AddSiteRequest):
             "message": "Site added" if success else "Failed to add site"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Request failed")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 @app.get("/api/custom-sites")
 async def get_custom_sites():
@@ -376,7 +406,8 @@ async def get_custom_sites():
             "count": len(sites)
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Request failed")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 @app.delete("/api/custom-sites/{site_id:int}")
 async def delete_custom_site(site_id: int):
@@ -387,7 +418,8 @@ async def delete_custom_site(site_id: int):
             "message": "Site deleted" if success else "Failed to delete site"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Request failed")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 @app.get("/api/languages")
 async def get_languages():

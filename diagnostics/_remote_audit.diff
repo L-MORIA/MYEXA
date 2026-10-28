@@ -1,0 +1,1033 @@
+diff --git a/backend/api/database.py b/backend/api/database.py
+index e2f2b34..8870f76 100644
+--- a/backend/api/database.py
++++ b/backend/api/database.py
+@@ -1,128 +1,103 @@
++import os
+ import sqlite3
+-from datetime import datetime
+-from typing import List, Optional
++from contextlib import contextmanager
++from typing import List
+ from config import Config
+ 
+ class Database:
+     def __init__(self):
+         self.db_path = Config.DATABASE_PATH
++        db_dir = os.path.dirname(self.db_path)
++        if db_dir:
++            os.makedirs(db_dir, exist_ok=True)
+         self.init_db()
+-    
+-    def init_db(self):
+-        """Initialize database tables"""
+-        conn = sqlite3.connect(self.db_path)
+-        cursor = conn.cursor()
+-        
+-        # Search results table
+-        cursor.execute('''
+-            CREATE TABLE IF NOT EXISTS search_results (
+-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+-                query TEXT NOT NULL,
+-                url TEXT UNIQUE NOT NULL,
+-                title TEXT,
+-                content TEXT,
+-                relevance_score REAL,
+-                language TEXT,
+-                source TEXT,
+-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-            )
+-        ''')
+-        
+-        # Custom sites table
+-        cursor.execute('''
+-            CREATE TABLE IF NOT EXISTS custom_sites (
+-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+-                url TEXT UNIQUE NOT NULL,
+-                title TEXT,
+-                category TEXT,
+-                tags TEXT,
+-                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-            )
+-        ''')
+-        
+-        # Search history table
+-        cursor.execute('''
+-            CREATE TABLE IF NOT EXISTS search_history (
+-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+-                query TEXT NOT NULL,
+-                languages TEXT,
+-                results_count INTEGER,
+-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-            )
+-        ''')
+-        
+-        conn.commit()
+-        conn.close()
+-    
+-    def save_result(self, query: str, url: str, title: str, content: str, 
+-                   relevance_score: float, language: str, source: str):
+-        """Save search result to database"""
++
++    @contextmanager
++    def _connect(self):
+         conn = sqlite3.connect(self.db_path)
+-        cursor = conn.cursor()
+-        
++        conn.row_factory = sqlite3.Row
+         try:
+-            cursor.execute('''
+-                INSERT INTO search_results 
+-                (query, url, title, content, relevance_score, language, source)
+-                VALUES (?, ?, ?, ?, ?, ?, ?)
+-            ''', (query, url, title, content, relevance_score, language, source))
++            yield conn
+             conn.commit()
+-        except sqlite3.IntegrityError:
+-            pass
+         finally:
+             conn.close()
++
++    def init_db(self):
++        with self._connect() as conn:
++            conn.executescript('''
++                CREATE TABLE IF NOT EXISTS search_results (
++                    id INTEGER PRIMARY KEY AUTOINCREMENT,
++                    query TEXT NOT NULL,
++                    url TEXT UNIQUE NOT NULL,
++                    title TEXT,
++                    content TEXT,
++                    relevance_score REAL,
++                    language TEXT,
++                    source TEXT,
++                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++                );
++                CREATE TABLE IF NOT EXISTS custom_sites (
++                    id INTEGER PRIMARY KEY AUTOINCREMENT,
++                    url TEXT UNIQUE NOT NULL,
++                    title TEXT,
++                    category TEXT,
++                    tags TEXT,
++                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++                );
++                CREATE TABLE IF NOT EXISTS search_history (
++                    id INTEGER PRIMARY KEY AUTOINCREMENT,
++                    query TEXT NOT NULL,
++                    languages TEXT,
++                    results_count INTEGER,
++                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++                );
++                CREATE INDEX IF NOT EXISTS idx_search_results_query
++                    ON search_results(query);
++            ''')
+     
+-    def get_results(self, query: str, limit: int = 50) -> List[dict]:
+-        """Get search results from database"""
+-        conn = sqlite3.connect(self.db_path)
+-        cursor = conn.cursor()
+-        
+-        cursor.execute('''
+-            SELECT * FROM search_results 
+-            WHERE query = ? 
+-            ORDER BY relevance_score DESC 
+-            LIMIT ?
+-        ''', (query, limit))
+-        
+-        results = cursor.fetchall()
+-        conn.close()
+-        return results
+-    
++    def save_result(self, query: str, url: str, title: str, content: str,
++                   relevance_score: float, language: str, source: str):
++        with self._connect() as conn:
++            try:
++                conn.execute('''
++                    INSERT INTO search_results
++                    (query, url, title, content, relevance_score, language, source)
++                    VALUES (?, ?, ?, ?, ?, ?, ?)
++                ''', (query, url, title, content, relevance_score, language, source))
++            except sqlite3.IntegrityError:
++                pass
++
++    def get_results(self, query: str, limit: int = 50) -> List[sqlite3.Row]:
++        with self._connect() as conn:
++            return conn.execute('''
++                SELECT * FROM search_results
++                WHERE query = ?
++                ORDER BY relevance_score DESC
++                LIMIT ?
++            ''', (query, limit)).fetchall()
++
+     def add_custom_site(self, url: str, title: str, category: str = None, tags: str = None):
+-        """Add site to custom database"""
+-        conn = sqlite3.connect(self.db_path)
+-        cursor = conn.cursor()
+-        
+-        try:
+-            cursor.execute('''
+-                INSERT INTO custom_sites (url, title, category, tags)
+-                VALUES (?, ?, ?, ?)
+-            ''', (url, title, category, tags))
+-            conn.commit()
+-        except sqlite3.IntegrityError:
+-            pass
+-        finally:
+-            conn.close()
+-    
+-    def get_custom_sites(self) -> List[dict]:
+-        """Get all custom sites"""
+-        conn = sqlite3.connect(self.db_path)
+-        cursor = conn.cursor()
+-        
+-        cursor.execute('SELECT * FROM custom_sites')
+-        results = cursor.fetchall()
+-        conn.close()
+-        return results
+-    
++        with self._connect() as conn:
++            try:
++                conn.execute('''
++                    INSERT INTO custom_sites (url, title, category, tags)
++                    VALUES (?, ?, ?, ?)
++                ''', (url, title, category, tags))
++            except sqlite3.IntegrityError:
++                pass
++
++    def get_custom_sites(self) -> List[sqlite3.Row]:
++        with self._connect() as conn:
++            return conn.execute('SELECT * FROM custom_sites').fetchall()
++
+     def save_search_history(self, query: str, languages: str, results_count: int):
+-        """Save search to history"""
+-        conn = sqlite3.connect(self.db_path)
+-        cursor = conn.cursor()
+-        
+-        cursor.execute('''
+-            INSERT INTO search_history (query, languages, results_count)
+-            VALUES (?, ?, ?)
+-        ''', (query, languages, results_count))
+-        
+-        conn.commit()
+-        conn.close()
++        with self._connect() as conn:
++            conn.execute('''
++                INSERT INTO search_history (query, languages, results_count)
++                VALUES (?, ?, ?)
++            ''', (query, languages, results_count))
++
++    def delete_custom_site(self, site_id: int) -> bool:
++        with self._connect() as conn:
++            cursor = conn.execute('DELETE FROM custom_sites WHERE id = ?', (site_id,))
++            return cursor.rowcount > 0
+diff --git a/backend/api/translator.py b/backend/api/translator.py
+index 6ed60b3..6234c76 100644
+--- a/backend/api/translator.py
++++ b/backend/api/translator.py
+@@ -1,65 +1,122 @@
+-from google.cloud import translate_v2
+-import os
++import logging
++import uuid
++from collections import OrderedDict
++
++import requests
++
++from config import Config
++
++logger = logging.getLogger(__name__)
++
++# Cap the translation cache so a long-running server doesn't grow it without
++# bound (each unique query × target pair is stored forever otherwise).
++MAX_CACHE_ENTRIES = 1024
++
++# Map our internal language codes to the codes expected by the providers.
++# Yandex and Google use the same ISO codes for these languages.
++LANG_MAP = {"ru": "ru", "en": "en", "de": "de", "it": "it"}
++
++# Browser-facing Yandex endpoint (the same one translate.yandex.com uses).
++# No API key required. Gray area but far more stable than the Google "gtx"
++# endpoint and the best quality for ru <-> de/it.
++YANDEX_URL = "https://translate.yandex.net/api/v1/tr.json/translate"
++
++# Unofficial Google endpoint, kept as a secondary fallback.
++GOOGLE_URL = "https://translate.googleapis.com/translate_a/single"
++
++
++def _new_yandex_sid() -> str:
++    """Yandex expects a `sid` (session id). A random UUID works fine."""
++    return uuid.uuid4().hex
++
+ 
+ class Translator:
+     def __init__(self):
+-        # Using Google Translate API (free tier available)
+-        # Alternative: use free API like LibreTranslate
+-        self.client = None
+-        self.use_free_api = True
+-    
++        self._cache: OrderedDict = OrderedDict()
++        self._source = Config.SOURCE_LANGUAGE
++        self._sid = _new_yandex_sid()
++
+     def translate(self, text: str, target_language: str) -> str:
+-        """Translate text to target language"""
+-        if self.use_free_api:
+-            return self._translate_free(text, target_language)
+-        else:
+-            return self._translate_google(text, target_language)
+-    
+-    def _translate_free(self, text: str, target_language: str) -> str:
+-        """Use free translation API (LibreTranslate)"""
+-        import requests
+-        
+-        lang_map = {
+-            "en": "en",
+-            "de": "de",
+-            "it": "it"
+-        }
+-        
++        """Translate ``text`` into ``target_language``.
++
++        Tries Yandex first, then the Google gtx endpoint, and finally returns
++        the original text so search never breaks because of translation.
++        Results are cached per (text, target) pair.
++        """
++        if not text:
++            return text
++
++        target = LANG_MAP.get(target_language)
++        if not target:
++            return text
++
++        # No need to call a service when source == target.
++        if target == self._source:
++            return text
++
++        cache_key = (text, target)
++        if cache_key in self._cache:
++            self._cache.move_to_end(cache_key)
++            return self._cache[cache_key]
++
++        result = self._translate_yandex(text, target)
++        if not result:
++            result = self._translate_google(text, target)
++        if not result:
++            result = text
++
++        self._cache[cache_key] = result
++        if len(self._cache) > MAX_CACHE_ENTRIES:
++            self._cache.popitem(last=False)
++        return result
++
++    def _translate_yandex(self, text: str, target: str) -> str | None:
+         try:
+-            response = requests.post(
+-                "https://libretranslate.de/translate",
+-                json={
+-                    "q": text,
+-                    "source": "auto",
+-                    "target": lang_map.get(target_language, "en")
++            resp = requests.get(
++                YANDEX_URL,
++                params={
++                    "id": self._sid + "-0-0",
++                    "srv": "tr",
++                    "source": self._source,
++                    "lang": f"{self._source}-{target}",
++                    "text": text,
+                 },
+-                timeout=5
++                timeout=5,
+             )
+-            if response.status_code == 200:
+-                return response.json().get("translatedText", text)
++            if resp.status_code == 200:
++                data = resp.json()
++                # Response shape: {"lang": "...", "text": ["translated..."]}
++                texts = data.get("text")
++                if texts:
++                    return "".join(texts)
+         except Exception as e:
+-            print(f"Translation error: {e}")
+-        
+-        return text
+-    
+-    def _translate_google(self, text: str, target_language: str) -> str:
+-        """Use Google Translate API"""
+-        if not self.client:
+-            self.client = translate_v2.Client()
+-        
++            logger.warning("Yandex Translate error: %s", e)
++        return None
++
++    def _translate_google(self, text: str, target: str) -> str | None:
+         try:
+-            result = self.client.translate_text(
+-                text,
+-                target_language=target_language
++            resp = requests.get(
++                GOOGLE_URL,
++                params={"client": "gtx", "sl": "auto", "tl": target, "dt": "t", "q": text},
++                timeout=5,
+             )
+-            return result["translatedText"]
++            if resp.status_code == 200:
++                parts = resp.json()[0]
++                return "".join(p[0] for p in parts if p and p[0])
+         except Exception as e:
+-            print(f"Google Translate error: {e}")
+-            return text
+-    
++            logger.warning("Google Translate error: %s", e)
++        return None
++
+     def translate_to_multiple(self, text: str, languages: list) -> dict:
+-        """Translate text to multiple languages"""
++        """Translate ``text`` into every language in ``languages``.
++
++        The source language is preserved as ``"original"`` so callers always
++        have the unmodified query available.
++        """
+         results = {"original": text}
++        results[self._source] = text
+         for lang in languages:
++            if lang == self._source:
++                continue
+             results[lang] = self.translate(text, lang)
+         return results
+diff --git a/backend/config.py b/backend/config.py
+index ba68f74..cbeb678 100644
+--- a/backend/config.py
++++ b/backend/config.py
+@@ -1,31 +1,96 @@
+ import os
++import logging
+ from dotenv import load_dotenv
+ 
+ load_dotenv()
+ 
++logging.basicConfig(
++    level=os.getenv("LOG_LEVEL", "INFO"),
++    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
++)
++
++
++def _get_db_path():
++    path = os.getenv("DATABASE_PATH", "./database/myexa.db")
++    if not os.path.isabs(path):
++        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++        # Strip only a leading "./" (or ".\") — str.lstrip("./") would also
++        # eat leading dots from names like ".hidden/db.sqlite".
++        cleaned = path.replace("\\", "/")
++        if cleaned.startswith("./"):
++            cleaned = cleaned[2:]
++        path = os.path.join(base_dir, cleaned)
++    return os.path.normpath(path)
++
++
++def _parse_port() -> int:
++    raw = os.getenv("PORT", "3005")
++    try:
++        return int(raw)
++    except (ValueError, TypeError):
++        print(f"WARNING: Invalid PORT '{raw}', falling back to 3005")
++        return 3005
++
++
+ class Config:
+-    # API
+     EXA_API_KEY = os.getenv("EXA_API_KEY", "")
+-    
+-    # Database
+-    DATABASE_PATH = os.getenv("DATABASE_PATH", "./database/myexa.db")
+-    
+-    # Server
+-    HOST = os.getenv("HOST", "0.0.0.0")
+-    PORT = int(os.getenv("PORT", 3005))
+-    
+-    # Logging
++    DATABASE_PATH = _get_db_path()
++    # Bind to loopback by default: this is a local tool, and binding 0.0.0.0
++    # exposes the unauthenticated API (search, OCR upload, site CRUD) to the
++    # whole network. Set HOST=0.0.0.0 explicitly if LAN access is intended.
++    HOST = os.getenv("HOST", "127.0.0.1")
++    PORT = _parse_port()
+     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+-    
+-    # Embedding
+-    EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+-    
+-    # Filtering thresholds
+-    RELEVANCE_THRESHOLD = 0.5
+-    
+-    # Languages
+-    SUPPORTED_LANGUAGES = ["en", "de", "it"]
+-    
+-    # OCR
++    # Multilingual model: supports ru/de/it/en cross-lingual comparison.
++    EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
++    # Lowered from 0.5: cross-lingual cosine scores are naturally lower and the
++    # English-only threshold silently dropped every non-English result.
++    RELEVANCE_THRESHOLD = 0.3
+     OCR_ENABLED = True
+     TESSERACT_PATH = os.getenv("TESSERACT_PATH", "tesseract")
++    # Upload / OCR abuse limits (the endpoints are unauthenticated).
++    MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
++    MAX_PDF_PAGES = 50
++
++    # Source language used when translating the user query.
++    SOURCE_LANGUAGE = os.getenv("SOURCE_LANGUAGE", "ru")
++
++    # Registry of supported languages. Each entry carries the UI label shown on
++    # the frontend and the national domains used to bias Exa results toward that
++    # language (Exa has no native `lang` param, so we lean on `includeDomains`).
++    LANGUAGES = {
++        "ru": {
++            "label": "Русский",
++            "include_domains": ["lenta.ru", "ria.ru", "habr.com", "vc.ru", "tass.ru"],
++        },
++        "en": {
++            "label": "English",
++            "include_domains": [],
++        },
++        "de": {
++            "label": "Deutsch",
++            "include_domains": ["de.wikipedia.org", "spiegel.de", "zeit.de", "heise.de"],
++        },
++        "it": {
++            "label": "Italiano",
++            "include_domains": ["it.wikipedia.org", "repubblica.it", "corriere.it"],
++        },
++    }
++
++    # Languages selected by default on a fresh search. Russian first.
++    DEFAULT_LANGUAGES = ["ru"]
++
++    # Backwards-compatible flat list (order = display order).
++    SUPPORTED_LANGUAGES = ["ru", "en", "de", "it"]
++
++    @classmethod
++    def language_domains(cls, lang: str) -> list:
++        """Return national includeDomains for a language code (may be empty)."""
++        entry = cls.LANGUAGES.get(lang) or {}
++        return list(entry.get("include_domains", []))
++
++    @classmethod
++    def language_label(cls, lang: str) -> str:
++        """Return the UI label for a language code."""
++        entry = cls.LANGUAGES.get(lang) or {}
++        return entry.get("label", lang)
+diff --git a/backend/models/schemas.py b/backend/models/schemas.py
+index c705079..a400e04 100644
+--- a/backend/models/schemas.py
++++ b/backend/models/schemas.py
+@@ -1,30 +1,33 @@
+-from pydantic import BaseModel
+-from typing import Optional, List
+-from datetime import datetime
++from pydantic import BaseModel, Field, field_validator
++from typing import List
++
++from config import Config
+ 
+ class SearchQuery(BaseModel):
+-    query: str
+-    languages: List[str] = ["en", "de", "it"]
+-    num_results: int = 10
++    query: str = Field(..., min_length=1)
++    languages: List[str] = ["ru"]
++    num_results: int = Field(10, ge=1, le=50)
+     filter_by_relevance: bool = True
+     search_custom_db: bool = True
+ 
+-class SearchResult(BaseModel):
+-    id: int
+-    query: str
+-    url: str
+-    title: str
+-    content: Optional[str]
+-    relevance_score: float
+-    language: str
+-    source: str
+-    created_at: datetime
++    @field_validator("query")
++    @classmethod
++    def query_not_blank(cls, v: str) -> str:
++        if not v.strip():
++            raise ValueError("query must not be blank")
++        return v
+ 
+-class CustomSite(BaseModel):
+-    url: str
+-    title: str
+-    category: Optional[str] = None
+-    tags: Optional[str] = None
++    @field_validator("languages")
++    @classmethod
++    def languages_supported(cls, v: List[str]) -> List[str]:
++        unknown = [lang for lang in v if lang not in Config.SUPPORTED_LANGUAGES]
++        if unknown:
++            supported = ", ".join(Config.SUPPORTED_LANGUAGES)
++            raise ValueError(
++                f"unsupported language(s): {', '.join(unknown)}. "
++                f"Supported languages: {supported}"
++            )
++        return v
+ 
+ class FilteringRules(BaseModel):
+     relevance_score: float = 40
+@@ -32,12 +35,3 @@ class FilteringRules(BaseModel):
+     content_freshness: float = 15
+     language_match: float = 15
+     custom_boost: float = 10
+-
+-class OCRRequest(BaseModel):
+-    file_path: str
+-    language: str = "en"
+-
+-class OCRResult(BaseModel):
+-    text: str
+-    confidence: float
+-    language: str
+diff --git a/backend/services/exa_service.py b/backend/services/exa_service.py
+index 2bed8d4..69cff4e 100644
+--- a/backend/services/exa_service.py
++++ b/backend/services/exa_service.py
+@@ -1,65 +1,86 @@
+-from exa_py import Exa
++import logging
++import requests
+ from config import Config
+-from typing import List, Dict
++from typing import List, Dict, Optional
++
++logger = logging.getLogger(__name__)
++
++EXA_API_URL = "https://api.exa.ai"
++
+ 
+ class ExaService:
+     def __init__(self):
+-        self.exa = Exa(Config.EXA_API_KEY)
+-    
+-    def search(self, query: str, num_results: int = 10, language: str = "en") -> List[Dict]:
+-        """Search using Exa API"""
++        self.api_key = Config.EXA_API_KEY
++        if not self.api_key:
++            logger.warning("EXA_API_KEY is empty — Exa search will fail")
++
++    def _request(self, endpoint: str, data: dict) -> dict:
++        resp = requests.post(
++            f"{EXA_API_URL}{endpoint}",
++            json=data,
++            headers={"x-api-key": self.api_key},
++            timeout=15,
++        )
++        if resp.status_code != 200:
++            logger.error("Exa API error %s: %s", resp.status_code, resp.text[:300])
++            return {}
++        return resp.json()
++
++    def search(self, query: str, num_results: int = 10, language: str = "en",
++               include_domains: Optional[List[str]] = None) -> List[Dict]:
++        # Exa has no native `lang` parameter; national domains are passed in by
++        # the caller (from Config.LANGUAGES) to bias results toward the target
++        # language's corner of the web.
+         try:
+-            result = self.exa.search(
+-                query,
+-                num_results=num_results,
+-                type="auto",
+-                contents={
+-                    "highlights": {
+-                        "max_characters": 4000
+-                    }
++            payload = {
++                "query": query,
++                "numResults": num_results,
++                "type": "auto",
++                "contents": {"highlights": {"maxCharacters": 4000}},
++            }
++            if include_domains:
++                payload["includeDomains"] = list(include_domains)
++
++            data = self._request("/search", payload)
++            if not data:
++                return []
++
++            return [
++                {
++                    "url": item.get("url", ""),
++                    "title": item.get("title", ""),
++                    "highlights": (item.get("highlights") or [""])[0],
++                    "score": (item.get("highlightScores") or [0.0])[0],
++                    "language": language,
+                 }
+-            )
+-            
+-            results = []
+-            for item in result.results:
+-                results.append({
+-                    "url": item.url,
+-                    "title": item.title,
+-                    "highlights": item.highlights[0] if item.highlights else "",
+-                    "score": item.highlightScores[0] if item.highlightScores else 0.0,
+-                    "language": language
+-                })
+-            
+-            return results
++                for item in data.get("results") or []
++            ]
+         except Exception as e:
+-            print(f"Exa search error: {e}")
++            logger.error("Exa search error: %s", e)
+             return []
+-    
+-    def search_multiple_languages(self, query: str, languages: List[str], 
+-                                 num_results: int = 10) -> Dict[str, List[Dict]]:
+-        """Search in multiple languages"""
+-        results = {}
+-        for lang in languages:
+-            results[lang] = self.search(query, num_results, lang)
+-        return results
+-    
++
++    def search_multiple_languages(
++        self, query: str, languages: List[str], num_results: int = 10
++    ) -> Dict[str, List[Dict]]:
++        return {lang: self.search(query, num_results, lang) for lang in languages}
++
+     def get_contents(self, urls: List[str]) -> List[Dict]:
+-        """Get full contents from URLs"""
+         try:
+-            result = self.exa.get_contents(
+-                urls,
+-                text={"max_characters": 20000}
+-            )
+-            
+-            contents = []
+-            for item in result.results:
+-                contents.append({
+-                    "url": item.url,
+-                    "title": item.title,
+-                    "text": item.text if hasattr(item, 'text') else ""
+-                })
+-            
+-            return contents
++            data = self._request("/contents", {
++                "ids": urls,
++                "text": {"maxCharacters": 20000},
++            })
++            if not data:
++                return []
++
++            return [
++                {
++                    "url": item.get("url", ""),
++                    "title": item.get("title", ""),
++                    "text": item.get("text", ""),
++                }
++                for item in data.get("results") or []
++            ]
+         except Exception as e:
+-            print(f"Get contents error: {e}")
+-            return []
++            logger.error("Exa get_contents error: %s", e)
++            return []
+\ No newline at end of file
+diff --git a/backend/services/ocr_service.py b/backend/services/ocr_service.py
+index d030f01..3f25db2 100644
+--- a/backend/services/ocr_service.py
++++ b/backend/services/ocr_service.py
+@@ -1,111 +1,89 @@
++import logging
++import os
+ import PyPDF2
+ from PIL import Image
+ import pytesseract
+ from config import Config
+ from typing import Dict
+-import os
++
++logger = logging.getLogger(__name__)
++
+ 
+ class OCRService:
+     def __init__(self):
+         self.tesseract_path = Config.TESSERACT_PATH
+         if self.tesseract_path != "tesseract":
+-            pytesseract.pytesseract.pytesseract_cmd = self.tesseract_path
+-    
++            pytesseract.pytesseract.tesseract_cmd = self.tesseract_path
++
+     def extract_from_pdf(self, file_path: str) -> Dict:
+-        """Extract text from PDF using PyPDF2, fallback to Tesseract"""
++        # Reject oversized PDFs before any page-by-page work: pdf2image renders
++        # every page into an in-memory image, so a huge PDF is an easy DoS.
+         try:
+-            # Try PyPDF2 first
+-            text = self._extract_pdf_text(file_path)
+-            if text.strip():
++            page_count = self._page_count(file_path)
++            if page_count > Config.MAX_PDF_PAGES:
+                 return {
+-                    "text": text,
+-                    "confidence": 0.95,
+-                    "method": "PyPDF2",
+-                    "success": True
++                    "text": "",
++                    "confidence": 0.0,
++                    "method": "Failed",
++                    "success": False,
++                    "error": f"PDF has too many pages ({page_count} > {Config.MAX_PDF_PAGES})",
+                 }
+         except Exception as e:
+-            print(f"PyPDF2 error: {e}")
+-        
+-        # Fallback to Tesseract
++            logger.warning("Could not read PDF page count: %s", e)
++
++        try:
++            text = self._extract_pdf_text(file_path)
++            if text.strip():
++                return {"text": text, "confidence": 0.95, "method": "PyPDF2", "success": True}
++        except Exception as e:
++            logger.warning("PyPDF2 extraction failed, falling back to OCR: %s", e)
++
+         try:
+             text = self._extract_pdf_ocr(file_path)
+-            return {
+-                "text": text,
+-                "confidence": 0.85,
+-                "method": "Tesseract",
+-                "success": True
+-            }
++            return {"text": text, "confidence": 0.85, "method": "Tesseract", "success": True}
+         except Exception as e:
+-            print(f"Tesseract error: {e}")
+-            return {
+-                "text": "",
+-                "confidence": 0.0,
+-                "method": "Failed",
+-                "success": False
+-            }
+-    
++            logger.error("PDF OCR failed: %s", e)
++            return {"text": "", "confidence": 0.0, "method": "Failed", "success": False, "error": str(e)}
++
++    def _page_count(self, file_path: str) -> int:
++        with open(file_path, "rb") as f:
++            return len(PyPDF2.PdfReader(f).pages)
++
+     def _extract_pdf_text(self, file_path: str) -> str:
+-        """Extract text from PDF using PyPDF2"""
+         text = ""
+-        with open(file_path, 'rb') as file:
+-            pdf_reader = PyPDF2.PdfReader(file)
+-            for page in pdf_reader.pages:
+-                text += page.extract_text()
++        with open(file_path, "rb") as f:
++            reader = PyPDF2.PdfReader(f)
++            for page in reader.pages:
++                page_text = page.extract_text()
++                if page_text:
++                    text += page_text
+         return text
+-    
++
+     def _extract_pdf_ocr(self, file_path: str) -> str:
+-        """Extract text from PDF using Tesseract OCR"""
+         from pdf2image import convert_from_path
+-        
++
+         images = convert_from_path(file_path)
+         text = ""
+         for image in images:
+             text += pytesseract.image_to_string(image)
+         return text
+-    
++
+     def extract_from_image(self, file_path: str, language: str = "eng") -> Dict:
+-        """Extract text from image using Tesseract"""
+         try:
+             image = Image.open(file_path)
+             text = pytesseract.image_to_string(image, lang=language)
+-            
+-            return {
+-                "text": text,
+-                "confidence": 0.85,
+-                "method": "Tesseract",
+-                "success": True
+-            }
++            return {"text": text, "confidence": 0.85, "method": "Tesseract", "success": True}
+         except Exception as e:
+-            print(f"Image OCR error: {e}")
+-            return {
+-                "text": "",
+-                "confidence": 0.0,
+-                "method": "Failed",
+-                "success": False
+-            }
+-    
++            logger.error("Image OCR error: %s", e)
++            return {"text": "", "confidence": 0.0, "method": "Failed", "success": False, "error": str(e)}
++
+     def process_file(self, file_path: str, language: str = "eng") -> Dict:
+-        """Process file (PDF or image) and extract text"""
+         if not os.path.exists(file_path):
+-            return {
+-                "text": "",
+-                "confidence": 0.0,
+-                "method": "Failed",
+-                "success": False,
+-                "error": "File not found"
+-            }
+-        
+-        file_ext = os.path.splitext(file_path)[1].lower()
+-        
+-        if file_ext == ".pdf":
++            return {"text": "", "confidence": 0.0, "method": "Failed", "success": False, "error": "File not found"}
++
++        ext = os.path.splitext(file_path)[1].lower()
++        if ext == ".pdf":
+             return self.extract_from_pdf(file_path)
+-        elif file_ext in [".jpg", ".jpeg", ".png", ".bmp", ".tiff"]:
++        if ext in (".jpg", ".jpeg", ".png", ".bmp", ".tiff"):
+             return self.extract_from_image(file_path, language)
+-        else:
+-            return {
+-                "text": "",
+-                "confidence": 0.0,
+-                "method": "Failed",
+-                "success": False,
+-                "error": f"Unsupported file type: {file_ext}"
+-            }
++        return {"text": "", "confidence": 0.0, "method": "Failed", "success": False, "error": f"Unsupported format: {ext}"}
+diff --git a/backend/services/site_db.py b/backend/services/site_db.py
+index 10c9cb0..74b68f5 100644
+--- a/backend/services/site_db.py
++++ b/backend/services/site_db.py
+@@ -1,70 +1,80 @@
++import logging
+ from typing import List, Dict
+ from api.database import Database
+ 
++logger = logging.getLogger(__name__)
++
+ class SiteDBService:
+     def __init__(self):
+         self.db = Database()
+-    
++
+     def add_site(self, url: str, title: str, category: str = None, tags: str = None) -> bool:
+-        """Add site to custom database"""
+         try:
+             self.db.add_custom_site(url, title, category, tags)
+             return True
+-        except Exception as e:
+-            print(f"Error adding site: {e}")
++        except Exception:
++            logger.exception("Error adding site")
+             return False
+-    
++
+     def get_all_sites(self) -> List[Dict]:
+-        """Get all custom sites"""
+         try:
+             sites = self.db.get_custom_sites()
+             return [
+                 {
+-                    "id": site[0],
+-                    "url": site[1],
+-                    "title": site[2],
+-                    "category": site[3],
+-                    "tags": site[4],
+-                    "added_at": site[5]
++                    "id": row["id"],
++                    "url": row["url"],
++                    "title": row["title"],
++                    "category": row["category"],
++                    "tags": row["tags"],
++                    "added_at": row["added_at"]
+                 }
+-                for site in sites
++                for row in sites
+             ]
+-        except Exception as e:
+-            print(f"Error getting sites: {e}")
++        except Exception:
++            logger.exception("Error getting sites")
+             return []
+-    
++
+     def search_in_custom_db(self, query: str) -> List[Dict]:
+-        """Search in custom site database"""
+-        sites = self.get_all_sites()
+-        results = []
+-        
+-        query_lower = query.lower()
+-        for site in sites:
+-            if (query_lower in site["url"].lower() or 
+-                query_lower in site["title"].lower() or
+-                query_lower in (site.get("tags") or "").lower()):
+-                results.append(site)
+-        
+-        return results
+-    
++        """Match sites by individual query words, ranked by hit count.
++
++        A site matches when at least one query word (2+ chars, case-
++        insensitive) occurs in its URL, title, or tags. Results are ordered
++        by the number of distinct matched words, so a site covering
++        "python async" ranks above one covering only "python".
++        """
++        words = sorted({w for w in query.lower().split() if len(w) >= 2})
++        if not words:
++            return []
++
++        matches = []
++        for site in self.get_all_sites():
++            haystack = " ".join(filter(None, [
++                site.get("url") or "",
++                site.get("title") or "",
++                site.get("tags") or "",
++            ])).lower()
++            if not haystack:
++                continue
++
++            hit_count = sum(1 for w in words if w in haystack)
++            if hit_count:
++                entry = dict(site)
++                entry["match_count"] = hit_count
++                matches.append(entry)
++
++        matches.sort(key=lambda s: (-s["match_count"], s["id"]))
++        return matches
++
+     def add_from_search_result(self, url: str, title: str, category: str = "search_result") -> bool:
+-        """Add search result to custom database"""
+         return self.add_site(url, title, category)
+-    
++
+     def get_site_urls(self) -> List[str]:
+-        """Get all site URLs for boosting"""
+         sites = self.get_all_sites()
+         return [site["url"] for site in sites]
+-    
+-    def delete_site(self, url: str) -> bool:
+-        """Delete site from custom database"""
++
++    def delete_site(self, site_id: int) -> bool:
+         try:
+-            conn = __import__('sqlite3').connect(self.db.db_path)
+-            cursor = conn.cursor()
+-            cursor.execute('DELETE FROM custom_sites WHERE url = ?', (url,))
+-            conn.commit()
+-            conn.close()
+-            return True
+-        except Exception as e:
+-            print(f"Error deleting site: {e}")
++            return self.db.delete_custom_site(site_id)
++        except Exception:
++            logger.exception("Error deleting site")
+             return False

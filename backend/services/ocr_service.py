@@ -16,6 +16,20 @@ class OCRService:
             pytesseract.pytesseract.tesseract_cmd = self.tesseract_path
 
     def extract_from_pdf(self, file_path: str) -> dict:
+        page_count = self._page_count(file_path)
+        if page_count is not None and page_count > Config.MAX_PDF_PAGES:
+            # Rendering every page of a huge PDF is a denial of service: a
+            # 500-page file turns into 500 images in memory.
+            message = (
+                f"PDF has too many pages: {page_count} "
+                f"(the limit is {Config.MAX_PDF_PAGES})"
+            )
+            logger.warning("OCR rejected a PDF: %s", message)
+            return {
+                "text": "", "confidence": 0.0, "method": "Failed",
+                "success": False, "error": message,
+            }
+
         try:
             text = self._extract_pdf_text(file_path)
             if text.strip():
@@ -35,7 +49,12 @@ class OCRService:
         with open(file_path, "rb") as f:
             reader = PyPDF2.PdfReader(f)
             for page in reader.pages:
-                text += page.extract_text()
+                # extract_text() returns None for a page without a text layer
+                # (a scanned page). Adding it to the string crashed the whole
+                # extraction.
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text
         return text
 
     def _extract_pdf_ocr(self, file_path: str) -> str:
@@ -46,6 +65,15 @@ class OCRService:
         for image in images:
             text += pytesseract.image_to_string(image)
         return text
+
+    def _page_count(self, file_path: str) -> int | None:
+        """Return the number of pages, or None when it cannot be determined."""
+        try:
+            with open(file_path, "rb") as f:
+                return len(PyPDF2.PdfReader(f).pages)
+        except Exception as e:
+            logger.warning("Could not read the PDF page count: %s", e)
+            return None
 
     def extract_from_image(self, file_path: str, language: str = "eng") -> dict:
         try:
