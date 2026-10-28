@@ -1,0 +1,32 @@
+# Template for the MYEXA SearXNG instance.
+# start-searxng.ps1 copies this file to settings.yml and replaces the
+# placeholder with a random secret key. settings.yml is git-ignored because
+# it contains that secret.
+
+use_default_settings: true
+
+general:
+  instance_name: "MYEXA SearXNG"
+  enable_metrics: false
+
+server:
+  secret_key: "CHANGE_ME_RANDOM_SECRET"
+  image_proxy: false
+  # No bot limiter: the instance is bound to 127.0.0.1 and is queried by the
+  # local backend, so the limiter would only get in the way of the JSON API.
+  limiter: false
+  bind_address: "0.0.0.0"
+  port: 8080
+
+search:
+  # The MYEXA backend consumes the JSON API.
+  formats:
+    - html
+    - json
+  safe_search: 0
+  autocomplete: ""
+
+outgoing:
+  # Keep a single slow engine from stalling the whole query.
+  request_timeout: 8.0
+  max_request_timeout: 15.0

@@ -1,0 +1,29 @@
+# Local SearXNG instance used as a fallback search provider for MYEXA.
+#
+# Why: the Exa API (api.exa.ai) is answered with HTTP 403 by Cloudflare for
+# this network, so the primary provider is unavailable. SearXNG aggregates
+# several engines from the same host and is reachable, which keeps the search
+# working while Exa is blocked. The backend falls back automatically: Exa is
+# tried first, SearXNG only on failure — when the Exa block is lifted, the
+# primary provider takes over again with no configuration change.
+#
+# Bound to 127.0.0.1 only: this instance has no authentication and must not
+# be exposed to the network.
+
+# An explicit project name is required: without it Docker derives the project
+# name from the directory ("docker"), which collides with other stacks on the
+# machine — `docker compose down` would then stop foreign containers, and
+# `--remove-orphans` would delete them.
+name: myexa-searxng
+
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: myexa-searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/

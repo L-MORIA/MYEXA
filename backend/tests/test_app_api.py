@@ -40,6 +40,7 @@ def client(tmp_db, monkeypatch):
         "db": MagicMock(),
         "translator": MagicMock(),
         "exa_service": MagicMock(),
+        "searxng_service": MagicMock(),
         "embedding_service": MagicMock(),
         "indexing_service": MagicMock(),
         "language_detector": MagicMock(),
@@ -50,11 +51,17 @@ def client(tmp_db, monkeypatch):
     monkeypatch.setattr(app_mod, "db", mocks["db"])
     monkeypatch.setattr(app_mod, "translator", mocks["translator"])
     monkeypatch.setattr(app_mod, "exa_service", mocks["exa_service"])
+    monkeypatch.setattr(app_mod, "searxng_service", mocks["searxng_service"])
     monkeypatch.setattr(app_mod, "embedding_service", mocks["embedding_service"])
     monkeypatch.setattr(app_mod, "indexing_service", mocks["indexing_service"])
     monkeypatch.setattr(app_mod, "language_detector", mocks["language_detector"])
     monkeypatch.setattr(app_mod, "ocr_service", mocks["ocr_service"])
     monkeypatch.setattr(app_mod, "site_db_service", mocks["site_db_service"])
+
+    # The fallback provider is disabled by default: the tests describe the
+    # behaviour of a single provider. The fallback has its own tests.
+    mocks["searxng_service"].is_configured.return_value = False
+    mocks["searxng_service"].search.return_value = []
 
     # The language detector must not silently drop every result in the mocks.
     mocks["language_detector"].annotate.side_effect = lambda results, lang: results
@@ -768,3 +775,119 @@ async def test_ocr_language_is_forwarded(api_client, client):
         "file": ("doc.pdf", b"%PDF", "application/pdf"),
     })
     assert mocks["ocr_service"].process_file.call_args.args[1] == "rus"
+
+
+# ── Fallback provider (SearXNG) ────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_falls_back_to_searxng_when_exa_fails(api_client, client):
+    """A blocked primary provider must not mean an empty search."""
+    mocks, _ = client
+
+    mocks["translator"].translate_to_multiple.return_value = {"original": "q", "ru": "q"}
+    mocks["exa_service"].search.side_effect = ExaError("Exa API error 403")
+    mocks["searxng_service"].is_configured.return_value = True
+    mocks["searxng_service"].search.return_value = [
+        {"url": "https://fallback.test/a", "title": "Fallback hit",
+         "highlights": "snippet", "score": 0.7, "language": "ru"}
+    ]
+    mocks["embedding_service"].filter_results.side_effect = lambda q, items, **kw: items
+    mocks["indexing_service"].rank_results.side_effect = lambda items, urls: items
+    mocks["site_db_service"].get_site_urls.return_value = []
+    mocks["site_db_service"].search_in_custom_db.return_value = []
+
+    resp = await api_client.post("/api/search", json={"query": "q", "languages": ["ru"]})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["results"]["ru"]) == 1
+    assert data["results"]["ru"][0]["url"] == "https://fallback.test/a"
+    # The user must be able to see which provider answered and why.
+    assert data["meta"]["ru"]["provider"] == "searxng"
+    assert "403" in data["meta"]["ru"]["fallback_reason"]
+    mocks["searxng_service"].search.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_fallback_is_not_used_while_exa_works(api_client, client):
+    """The primary provider stays in charge as long as it answers."""
+    mocks, _ = client
+
+    mocks["translator"].translate_to_multiple.return_value = {"original": "q", "ru": "q"}
+    mocks["exa_service"].search.return_value = [
+        {"url": "https://exa.test/a", "title": "Exa hit", "highlights": "s",
+         "score": 0.9, "language": "ru"}
+    ]
+    mocks["embedding_service"].filter_results.side_effect = lambda q, items, **kw: items
+    mocks["indexing_service"].rank_results.side_effect = lambda items, urls: items
+    mocks["site_db_service"].get_site_urls.return_value = []
+    mocks["site_db_service"].search_in_custom_db.return_value = []
+
+    resp = await api_client.post("/api/search", json={"query": "q", "languages": ["ru"]})
+    assert resp.status_code == 200
+    assert resp.json()["meta"]["ru"]["provider"] == "exa"
+    mocks["searxng_service"].search.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_503_when_both_providers_fail(api_client, client):
+    """Both reasons must be visible — not just the first one."""
+    from services.searxng_service import SearxngError
+
+    mocks, _ = client
+
+    mocks["translator"].translate_to_multiple.return_value = {"original": "q", "ru": "q"}
+    mocks["exa_service"].search.side_effect = ExaError("Exa API error 403")
+    mocks["searxng_service"].is_configured.return_value = True
+    mocks["searxng_service"].search.side_effect = SearxngError("connection refused")
+    mocks["site_db_service"].search_in_custom_db.return_value = []
+
+    resp = await api_client.post("/api/search", json={"query": "q", "languages": ["ru"]})
+    assert resp.status_code == 503
+    detail = resp.json()["detail"]
+    assert "403" in detail
+    assert "connection refused" in detail
+
+
+@pytest.mark.asyncio
+async def test_fallback_results_are_stored_with_their_source(api_client, client):
+    """The stored source must name the provider that actually answered."""
+    mocks, _ = client
+
+    mocks["translator"].translate_to_multiple.return_value = {"original": "q", "ru": "q"}
+    mocks["exa_service"].search.side_effect = ExaError("Exa API error 403")
+    mocks["searxng_service"].is_configured.return_value = True
+    mocks["searxng_service"].search.return_value = [
+        {"url": "https://fallback.test/a", "title": "Fallback hit",
+         "highlights": "snippet", "score": 0.7, "language": "ru"}
+    ]
+    mocks["embedding_service"].filter_results.side_effect = lambda q, items, **kw: items
+    mocks["indexing_service"].rank_results.side_effect = lambda items, urls: items
+    mocks["site_db_service"].get_site_urls.return_value = []
+    mocks["site_db_service"].search_in_custom_db.return_value = []
+
+    await api_client.post("/api/search", json={"query": "q", "languages": ["ru"]})
+
+    sources = [c.kwargs.get("source") for c in mocks["db"].save_result.call_args_list]
+    assert sources == ["searxng"]
+
+
+@pytest.mark.asyncio
+async def test_health_reports_the_fallback_as_active(api_client, client):
+    """The primary is down but the search still works — say so explicitly."""
+    mocks, _ = client
+
+    mocks["exa_service"].search.side_effect = ExaError("Exa API error 403")
+    mocks["searxng_service"].is_configured.return_value = True
+    mocks["searxng_service"].search.return_value = [
+        {"url": "https://fallback.test/a", "title": "t", "highlights": "s"}
+    ]
+
+    resp = await api_client.get("/api/health?deep=true")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "degraded"
+    assert data["active_provider"] == "searxng"
+    assert data["search_available"] is True
+    assert data["checks"]["exa"]["ok"] is False
+    assert data["checks"]["searxng"]["ok"] is True
+

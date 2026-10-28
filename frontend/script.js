@@ -81,6 +81,12 @@ createApp({
             const meta = this.searchMeta?.[code];
             if (!meta) return '';
             if (meta.error) return `Search backend error for this language: ${meta.error}`;
+            if (meta.fallback_reason) {
+                // The primary provider failed and the fallback answered. The
+                // user must see it: the results come from a different source.
+                return `Primary provider unavailable (${meta.fallback_reason}) — `
+                    + 'these results come from the local fallback (SearXNG).';
+            }
             if (meta.filtered_out) {
                 return `All ${meta.fetched} results scored below the relevance threshold (${meta.threshold}).`;
             }

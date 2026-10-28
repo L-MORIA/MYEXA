@@ -35,6 +35,19 @@ class Config:
     # mirror or a local stub — useful when api.exa.ai is unreachable from the
     # current network (Cloudflare blocks the whole host for some IP ranges).
     EXA_API_URL = os.getenv("EXA_API_URL", "https://api.exa.ai")
+
+    # --- Fallback search provider (SearXNG) ---------------------------------
+    # A local SearXNG instance aggregates several engines (Brave, Google CSE,
+    # DuckDuckGo, ...) behind one JSON API and keeps the search working while
+    # api.exa.ai is unreachable — Cloudflare answers 403 for whole IP ranges,
+    # which is exactly what happened here.
+    #
+    # Exa stays the primary provider: the fallback is used only after the
+    # primary has failed, so lifting the block needs no configuration change.
+    SEARXNG_URL = os.getenv("SEARXNG_URL", "http://127.0.0.1:8080")
+    SEARXNG_ENABLED = os.getenv("SEARXNG_ENABLED", "1").lower() not in ("0", "false", "no")
+    SEARXNG_TIMEOUT = int(os.getenv("SEARXNG_TIMEOUT", "20"))
+
     DATABASE_PATH = _get_db_path()
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = _parse_port()

@@ -1,0 +1,252 @@
+2026-10-28 15:12:25,950 [INFO] services.language_detector: Language detector ready (4 languages)
+SearXNG base URL: http://127.0.0.1:8080
+configured: True
+relevance threshold: 0.3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[ru] 'искусственный интеллект в медицине'
+    fetched=10  after_filter=9  after_language_filter=9  in 0.9s
+    language purity: 9/9 (100%)
+    engines: brave=2, google cse=8
+    relevance_index: max=0.742 min=0.467 spread=0.275 median=0.601
+      - [0.566] Искусственный интеллект в медицине - МИФИ
+      - [0.601] Как в медицине искусственный интеллект помогает лечить людей
+      - [0.742] Искусственный интеллект в медицине и здравоохранении
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[ru] 'развитие нейросетей в России'
+    fetched=10  after_filter=10  after_language_filter=10  in 0.6s
+    language purity: 10/10 (100%)
+    engines: brave=4, google cse=6
+    relevance_index: max=0.767 min=0.435 spread=0.333 median=0.605
+      - [0.474] Государственная поддержка развития нейросетей в России
+      - [0.668] Аудитория нейросетей в России выросла более чем в два раза
+      - [0.767] Аудитория нейросетей в России за год выросла вдвое - Expert.ru
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[en] 'artificial intelligence in medicine'
+    fetched=10  after_filter=10  after_language_filter=10  in 1.3s
+    language purity: 10/10 (100%)
+    engines: brave=3, google cse=7
+    relevance_index: max=0.808 min=0.456 spread=0.352 median=0.622
+      - [0.808] Artificial Intelligence in Medicine | Journal | ScienceDirect.com ...
+      - [0.579] Artificial Intelligence in Medicine | New England Journal of Medicine
+      - [0.703] Artificial intelligence in medicine: How it works, how it fails ...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[en] 'neural network research breakthroughs'
+    fetched=10  after_filter=10  after_language_filter=10  in 0.6s
+    language purity: 10/10 (100%)
+    engines: brave=6, google cse=4
+    relevance_index: max=0.777 min=0.462 spread=0.315 median=0.599
+      - [0.475] From Brain to Machine: The Unexpected Journey of Neural Networks
+      - [0.673] Top Research Papers on Neural Networks - Paperguide
+      - [0.570] Guided learning lets “untrainable” neural networks realize ...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[de] 'Künstliche Intelligenz in der Medizin'
+    fetched=10  after_filter=10  after_language_filter=10  in 0.8s
+    language purity: 10/10 (100%)
+    engines: brave=9, google cse=1
+    relevance_index: max=0.738 min=0.498 spread=0.240 median=0.607
+      - [0.498] Künstliche Intelligenz in der Medizin - Fraunhofer IKS
+      - [0.738] Künstliche Intelligenz in der Medizin: Für Ärztinnen und Ärzte
+      - [0.579] Künstliche Intelligenz: ein wachsendes Thema in der Medizin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[de] 'Entwicklung neuronaler Netze in Deutschland'
+    fetched=10  after_filter=10  after_language_filter=10  in 0.7s
+    language purity: 10/10 (100%)
+    engines: brave=5, google cse=5
+    relevance_index: max=0.728 min=0.472 spread=0.256 median=0.598
+      - [0.478] Die Geschichte Künstlicher Neuronaler Netze - TRADUCER.de
+      - [0.728] Einführung und Geschichte neuronaler Netze
+      - [0.536] Neuronale Netze - Retresco
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[it] 'intelligenza artificiale in medicina'
+    fetched=10  after_filter=10  after_language_filter=10  in 0.9s
+    language purity: 10/10 (100%)
+    engines: brave=4, google cse=6
+    relevance_index: max=0.748 min=0.494 spread=0.254 median=0.616
+      - [0.499] Applicazioni dell'intelligenza artificiale in medicina - ScienceDirect
+      - [0.748] Intelligenza Artificiale in Medicina: principi generali ed esempi ...
+      - [0.665] Intelligenza artificiale in Medicina: gli esempi d'uso più interessanti
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[it] 'sviluppo delle reti neurali in Italia'
+    fetched=10  after_filter=9  after_language_filter=9  in 1.0s
+    language purity: 9/9 (100%)
+    engines: brave=3, google cse=7
+    relevance_index: max=0.709 min=0.458 spread=0.251 median=0.583
+      - [0.474] AI e reti neurali: dall'Italia un approccio innovativo
+      - [0.709] Reti Neurali: cosa sono e perché sono importanti | SAS Italy
+      - [0.458] Che cos'è una rete neurale? - MATLAB & Simulink - MathWorks
+
+======================================================================
+SUMMARY
+======================================================================
+  ru: fetched=20  kept=19  pass_rate=95%  language_purity=100%  avg_time=0.7s  avg_spread=0.304
+  en: fetched=20  kept=20  pass_rate=100%  language_purity=100%  avg_time=1.0s  avg_spread=0.334
+  de: fetched=20  kept=20  pass_rate=100%  language_purity=100%  avg_time=0.7s  avg_spread=0.248
+  it: fetched=20  kept=19  pass_rate=95%  language_purity=100%  avg_time=0.9s  avg_spread=0.253

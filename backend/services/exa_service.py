@@ -2,13 +2,14 @@ import logging
 
 import requests
 from config import Config
+from services.search_provider import ProviderError, SearchProvider
 
 logger = logging.getLogger(__name__)
 
 EXA_API_URL = "https://api.exa.ai"
 
 
-class ExaError(RuntimeError):
+class ExaError(ProviderError):
     """Raised when the Exa API is unreachable or answers with an error.
 
     Previously every transport or HTTP failure was swallowed and turned into
@@ -22,7 +23,9 @@ class ExaError(RuntimeError):
         self.body = body
 
 
-class ExaService:
+class ExaService(SearchProvider):
+    name = "exa"
+
     def __init__(self):
         self.api_key = Config.EXA_API_KEY
         if not self.api_key:

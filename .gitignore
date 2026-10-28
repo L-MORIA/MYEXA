@@ -113,3 +113,10 @@ server_*.txt
 # Local development
 .local/
 local_config.py
+
+# SearXNG instance configuration — contains the generated secret key.
+# The template (settings.template.yml) is tracked, the generated file is not.
+docker/searxng/settings.yml
+
+# Scratch dumps from the engine probes (raw HTML) — kept locally only.
+diagnostics/engine_probe/

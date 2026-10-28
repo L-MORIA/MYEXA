@@ -35,6 +35,8 @@ from services.exa_service import ExaError, ExaService
 from services.indexing import IndexingService
 from services.language_detector import LanguageDetector
 from services.ocr_service import OCRService
+from services.search_provider import ProviderUnavailable
+from services.searxng_service import SearxngError, SearxngService
 from services.site_db import SiteDBService
 
 logger = logging.getLogger(__name__)
@@ -60,6 +62,7 @@ app.add_middleware(
 db = Database()
 translator = Translator()
 exa_service = ExaService()
+searxng_service = SearxngService()
 embedding_service = EmbeddingService()
 indexing_service = IndexingService()
 language_detector = LanguageDetector()
@@ -123,21 +126,43 @@ async def search(query_data: SearchQuery):
         # translated query per language (and the original under "original").
         translations = translator.translate_to_multiple(query, languages)
 
-        # Search Exa in each language using the *translated* query. Exa has no
-        # native lang param, so the query is localised with `userLocation`
-        # (country code). A hard `includeDomains` filter is NOT used by
-        # default: it restricts results to those domains only, which confined
-        # the Russian corpus to five sites while English searched the whole web.
+        # Search the primary provider in each language using the *translated*
+        # query. Exa has no native lang param, so the query is localised with
+        # `userLocation` (country code). A hard `includeDomains` filter is NOT
+        # used by default: it restricts results to those domains only, which
+        # confined the Russian corpus to five sites while English searched
+        # the whole web.
         #
         # The languages are searched concurrently — they are independent, and
         # the sequential version took up to 60s for four languages.
         async def _search_language(lang: str):
             search_query = translations.get(lang) or translations.get("original") or query
             country = Config.language_country(lang)
-            results = await asyncio.to_thread(
-                exa_service.search, search_query, num_results, lang, country=country
+            try:
+                results = await asyncio.to_thread(
+                    exa_service.search, search_query, num_results, lang, country=country
+                )
+                return lang, results, "exa", None
+            except ExaError as e:
+                primary_error = str(e)
+
+            # The primary provider failed — blocked, unreachable, out of credit.
+            # A local SearXNG instance can still answer, so one failed
+            # provider does not have to mean "no search".
+            if not searxng_service.is_configured():
+                raise ProviderUnavailable(primary_error)
+
+            logger.warning(
+                "Primary provider failed for %s (%s) — falling back to SearXNG",
+                lang, primary_error,
             )
-            return lang, results
+            try:
+                results = await asyncio.to_thread(
+                    searxng_service.search, search_query, num_results, lang, country=country
+                )
+            except SearxngError as e:
+                raise ProviderUnavailable(f"exa: {primary_error}; searxng: {e}") from e
+            return lang, results, "searxng", primary_error
 
         settled = await asyncio.gather(
             *[_search_language(lang) for lang in languages],
@@ -146,14 +171,19 @@ async def search(query_data: SearchQuery):
 
         all_results = {}
         provider_errors = {}
+        provider_used = {}
+        fallback_reasons = {}
         for lang, outcome in zip(languages, settled, strict=True):
             if isinstance(outcome, BaseException):
-                logger.error("Exa search failed for %s: %s", lang, outcome)
+                logger.error("Search provider failed for %s: %s", lang, outcome)
                 provider_errors[lang] = str(outcome)
                 all_results[lang] = []
             else:
-                _, results = outcome
+                _, results, provider, fallback_reason = outcome
                 all_results[lang] = results
+                provider_used[lang] = provider
+                if fallback_reason:
+                    fallback_reasons[lang] = fallback_reason
 
         # A provider outage is remembered here and turned into a 503 at the
         # end — only if there is nothing at all to show. The custom database is
@@ -176,6 +206,14 @@ async def search(query_data: SearchQuery):
         # The score blends the result title with a short snippet — not the full
         # highlights blob, which Exa builds by quoting the query back.
         meta = {}
+        for lang in languages:
+            meta[lang] = {"provider": provider_used.get(lang, "exa")}
+            if lang in fallback_reasons:
+                # The primary provider failed and the fallback answered. The
+                # reason is reported, so the user can tell why the source
+                # changed instead of guessing.
+                meta[lang]["fallback_reason"] = fallback_reasons[lang]
+
         if query_data.filter_by_relevance:
             for lang, results in all_results.items():
                 translated_query = translations.get(lang) or query
@@ -188,12 +226,12 @@ async def search(query_data: SearchQuery):
                     translated_query, results, threshold=threshold
                 )
                 all_results[lang] = filtered
-                meta[lang] = {
+                meta[lang].update({
                     "fetched": len(results),
                     "returned": len(filtered),
                     "filtered_out": bool(results) and not filtered,
                     "threshold": threshold,
-                }
+                })
 
         # Drop results written in another language. When fewer than half of
         # the results match, all of them are kept and the mismatch is flagged.
@@ -226,7 +264,7 @@ async def search(query_data: SearchQuery):
                     content=result.get("highlights", ""),
                     relevance_score=result.get("relevance_index", 0.0),
                     language=lang,
-                    source="exa"
+                    source=provider_used.get(lang, "exa")
                 )
 
         # Search custom database if enabled. This works entirely offline, so it
@@ -377,11 +415,32 @@ async def health(deep: bool = False):
     except Exception as e:
         checks["exa"] = {"ok": False, "error": str(e)}
 
+    # The fallback provider is probed separately: the search may still work
+    # through it even while the primary one is blocked.
+    if searxng_service.is_configured():
+        try:
+            fallback_results = searxng_service.search("health check", 1, "en")
+            checks["searxng"] = {"ok": True, "results": len(fallback_results)}
+        except SearxngError as e:
+            checks["searxng"] = {"ok": False, "error": str(e)}
+        except Exception as e:
+            checks["searxng"] = {"ok": False, "error": str(e)}
+    else:
+        checks["searxng"] = {"ok": False, "skipped": True, "error": "fallback disabled"}
+
     checks["exa_api_key_present"] = bool(Config.EXA_API_KEY)
 
     status["checks"] = checks
-    if not checks["exa"]["ok"]:
+    if checks["exa"]["ok"]:
+        status["active_provider"] = "exa"
+    elif checks.get("searxng", {}).get("ok"):
+        # The primary provider is down, the search itself still works.
         status["status"] = "degraded"
+        status["active_provider"] = "searxng"
+        status["search_available"] = True
+    else:
+        status["status"] = "degraded"
+        status["search_available"] = False
     return status
 
 if __name__ == "__main__":
