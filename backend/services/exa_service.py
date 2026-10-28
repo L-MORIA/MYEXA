@@ -48,7 +48,10 @@ class ExaService(SearchProvider):
             raise ExaError(f"Exa request failed: {e}") from e
 
         if resp.status_code != 200:
-            logger.error("Exa API error %s: %s", resp.status_code, resp.text[:300])
+            # The body is not logged: a blocked request answers with an HTML
+            # page of the CDN, and dumping it into the log adds nothing.
+            logger.error("Exa API error %s (%s)", resp.status_code,
+                         getattr(resp, "reason", "") or "unknown")
             raise ExaError(
                 f"Exa API error {resp.status_code}",
                 status_code=resp.status_code,
