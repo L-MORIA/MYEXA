@@ -118,5 +118,8 @@ local_config.py
 # The template (settings.template.yml) is tracked, the generated file is not.
 docker/searxng/settings.yml
 
+# Runtime state of the Exa block watcher (diagnostics/exa_block_watch.py).
+diagnostics/exa_block_state.json
+
 # Scratch dumps from the engine probes (raw HTML) — kept locally only.
 diagnostics/engine_probe/
