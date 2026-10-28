@@ -25,6 +25,24 @@ Visit **http://localhost:3005**
 
 Or double-click `MYEXA.lnk` on the desktop.
 
+### Search providers
+
+Exa is the primary search provider. When it is unreachable — Cloudflare
+answers HTTP 403 for whole IP ranges — the search automatically falls back to a
+local [SearXNG](https://docs.searxng.org/) instance, so queries keep working
+and the frontend says which provider answered.
+
+The fallback is a Docker container bound to `127.0.0.1:8080`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File docker\start-searxng.ps1   # start
+powershell -ExecutionPolicy Bypass -File docker\stop-searxng.ps1    # stop
+```
+
+**Docker Desktop must be running**, otherwise the fallback cannot answer.
+`GET /api/health?deep=true` reports the active provider and whether the
+search is available.
+
 ## Project Structure
 
 ```
@@ -38,8 +56,11 @@ MYEXA/
 │   │   └── translator.py       # Google Translate AJAX + LibreTranslate fallback
 │   ├── services/
 │   │   ├── exa_service.py      # Exa API via direct HTTP requests
+│   │   ├── searxng_service.py  # SearXNG fallback provider
+│   │   ├── search_provider.py  # Shared provider contract
 │   │   ├── embedding.py        # sentence-transformers encoding + filtering
 │   │   ├── indexing.py         # Relevance index calculation
+│   │   ├── language_detector.py # Per-result language detection (ru/en/de/it)
 │   │   ├── ocr_service.py      # PDF/image text extraction
 │   │   └── site_db.py          # Custom site CRUD
 │   └── models/
@@ -49,6 +70,11 @@ MYEXA/
 │   ├── script.js               # Vue 3 app logic
 │   ├── style.css               # Responsive styling
 │   └── favicon.svg             # Brand favicon
+├── docker/                     # SearXNG fallback instance
+│   ├── compose.yml             # Container definition (127.0.0.1:8080)
+│   ├── start-searxng.ps1       # Generate secret, start, wait for readiness
+│   └── stop-searxng.ps1        # Stop the instance
+├── diagnostics/                # Quality harness, measurements, fix plan
 ├── database/                   # SQLite storage (auto-created)
 ├── .env                        # Environment variables
 ├── run.bat                     # Windows launcher with health-check
