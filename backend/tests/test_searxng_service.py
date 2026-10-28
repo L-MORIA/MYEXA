@@ -133,6 +133,123 @@ class TestSearch:
                    return_value=_Resp(payload={"results": []})):
             assert SearxngService().search("q") == []
 
+    def test_engine_failures_are_reported(self):
+        """Every engine failed — that is a broken backend, not 'nothing found'.
+
+        The upstream engines rate-limit the instance (HTTP 429). The instance
+        then answers with an empty result list, which would look exactly like
+        a query without results.
+        """
+        payload = {
+            "results": [],
+            "unresponsive_engines": [
+                ["brave", "Suspended: too many requests"],
+                ["duckduckgo", "CAPTCHA"],
+            ],
+        }
+        with patch("services.searxng_service.requests.get", return_value=_Resp(payload=payload)):
+            with pytest.raises(SearxngError) as exc:
+                SearxngService().search("q")
+
+        message = str(exc.value)
+        assert "brave" in message
+        assert "too many requests" in message
+        assert "CAPTCHA" in message
+
+    def test_partial_engine_failure_still_returns_results(self):
+        payload = {
+            "results": [{"url": "https://e.test/a", "title": "T", "content": "c",
+                         "engine": "brave", "score": 1}],
+            "unresponsive_engines": [["duckduckgo", "CAPTCHA"]],
+        }
+        with patch("services.searxng_service.requests.get", return_value=_Resp(payload=payload)):
+            results = SearxngService().search("q")
+        assert len(results) == 1
+
+
+# ── Cache ───────────────────────────────────────────────────────────────────
+
+class TestCache:
+    """Repeating a query must not hammer the upstream engines.
+
+    A burst of searches earns an HTTP 429 from Brave and Google, and the
+    instance is left with nothing to answer with.
+    """
+
+    def _payload(self):
+        return {"results": [{"url": "https://e.test/a", "title": "T", "content": "c",
+                             "engine": "brave", "score": 1}]}
+
+    def test_repeated_query_uses_one_request(self):
+        with patch("services.searxng_service.requests.get",
+                   return_value=_Resp(payload=self._payload())) as mock_get:
+            svc = SearxngService()
+            first = svc.search("q", language="ru")
+            second = svc.search("q", language="ru")
+
+        assert mock_get.call_count == 1
+        assert len(first) == len(second) == 1
+
+    def test_cached_results_are_independent_copies(self):
+        """The caller annotates and scores the items in place."""
+        with patch("services.searxng_service.requests.get",
+                   return_value=_Resp(payload=self._payload())):
+            svc = SearxngService()
+            first = svc.search("q", language="ru")
+            first[0]["embedding_score"] = 0.99
+            second = svc.search("q", language="ru")
+
+        assert "embedding_score" not in second[0]
+
+    def test_different_languages_are_cached_separately(self):
+        with patch("services.searxng_service.requests.get",
+                   return_value=_Resp(payload=self._payload())) as mock_get:
+            svc = SearxngService()
+            svc.search("q", language="ru")
+            svc.search("q", language="en")
+        assert mock_get.call_count == 2
+
+    def test_cache_can_be_switched_off(self):
+        with patch("services.searxng_service.Config.SEARXNG_CACHE_TTL", 0):
+            with patch("services.searxng_service.requests.get",
+                       return_value=_Resp(payload=self._payload())) as mock_get:
+                svc = SearxngService()
+                svc.search("q", language="ru")
+                svc.search("q", language="ru")
+        assert mock_get.call_count == 2
+
+    def test_cache_is_bounded(self):
+        with patch("services.searxng_service.Config.SEARXNG_CACHE_SIZE", 2):
+            with patch("services.searxng_service.requests.get",
+                       return_value=_Resp(payload=self._payload())):
+                svc = SearxngService()
+                for index in range(5):
+                    svc.search(f"query {index}", language="ru")
+        assert len(svc._cache) <= 2
+
+
+# ── Failure parsing ─────────────────────────────────────────────────────────
+
+class TestFailureParsing:
+    def test_pairs(self):
+        parsed = SearxngService._parse_failures([["brave", "CAPTCHA"]])
+        assert parsed == [("brave", "CAPTCHA")]
+
+    def test_dicts(self):
+        parsed = SearxngService._parse_failures(
+            [{"engine": "brave", "error_type": "Suspended: too many requests"}]
+        )
+        assert parsed == [("brave", "Suspended: too many requests")]
+
+    def test_flat_pair(self):
+        parsed = SearxngService._parse_failures(["brave", "CAPTCHA"])
+        assert parsed == [("brave", "CAPTCHA")]
+
+    def test_empty(self):
+        assert SearxngService._parse_failures(None) == []
+        assert SearxngService._parse_failures([]) == []
+
+
 
 # ── Date parsing ────────────────────────────────────────────────────────────
 

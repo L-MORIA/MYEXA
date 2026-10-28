@@ -276,3 +276,57 @@ class TestTranslateToMultiple:
             t.translate_to_multiple("тест", ["ru", "en"])
             # translate() was called for "en" but NOT for "ru"
             spy.assert_any_call("тест", "en")
+
+    def test_translations_run_in_parallel(self):
+        """The languages are independent — one slow call must not delay the rest.
+
+        Three sequential round-trips took three times as long as one.
+        """
+        import time
+
+        t = Translator()
+        delay = 0.3
+
+        def slow_translate(text, lang):
+            time.sleep(delay)
+            return f"{lang}:{text}"
+
+        with patch.object(t, "translate", side_effect=slow_translate):
+            started = time.perf_counter()
+            result = t.translate_to_multiple("q", ["en", "de", "it"])
+            elapsed = time.perf_counter() - started
+
+        assert result["en"] == "en:q"
+        assert result["de"] == "de:q"
+        assert result["it"] == "it:q"
+        # Sequential would need at least 0.9 s.
+        assert elapsed < 0.6, f"translations ran sequentially ({elapsed:.2f}s)"
+
+    def test_every_target_language_is_present(self):
+        t = Translator()
+        with patch.object(t, "translate", side_effect=lambda text, lang: f"{lang}!"):
+            result = t.translate_to_multiple("q", ["en", "de", "it"])
+        assert result["en"] == "en!"
+        assert result["de"] == "de!"
+        assert result["it"] == "it!"
+        assert result["original"] == "q"
+
+    def test_yandex_uses_a_fresh_session_id_per_request(self):
+        """Parallel requests must not share one session id."""
+        t = Translator()
+        ids = []
+
+        def capture(url, params=None, **kw):
+            ids.append(params["id"])
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.json.return_value = {"text": ["ok"]}
+            return resp
+
+        with patch("api.translator.requests.get", side_effect=capture):
+            t._translate_yandex("a", "en")
+            t._translate_yandex("b", "de")
+
+        assert len(ids) == 2
+        assert ids[0] != ids[1]
+

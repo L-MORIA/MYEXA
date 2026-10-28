@@ -617,6 +617,45 @@ async def test_searches_languages_in_parallel(api_client, client):
     assert elapsed < 1.0, f"languages searched sequentially ({elapsed:.2f}s)"
 
 
+@pytest.mark.asyncio
+async def test_languages_are_filtered_in_parallel(api_client, client):
+    """The relevance filter must not run one language after another.
+
+    The filter runs the embedding model over every result, so doing it
+    sequentially added the model time of every language to the request.
+    """
+    import time
+
+    mocks, _ = client
+
+    mocks["translator"].translate_to_multiple.return_value = {
+        "original": "q", "ru": "q", "en": "q", "de": "q", "it": "q",
+    }
+    mocks["exa_service"].search.return_value = [
+        {"url": "https://x.com", "title": "T", "highlights": "h", "score": 0.5}
+    ]
+
+    def slow_filter(query, items, **kw):
+        time.sleep(0.3)
+        return items
+
+    mocks["embedding_service"].filter_results.side_effect = slow_filter
+    mocks["indexing_service"].rank_results.side_effect = lambda items, urls: items
+    mocks["site_db_service"].get_site_urls.return_value = []
+    mocks["site_db_service"].search_in_custom_db.return_value = []
+
+    start = time.perf_counter()
+    resp = await api_client.post("/api/search", json={
+        "query": "q", "languages": ["ru", "en", "de", "it"],
+    })
+    elapsed = time.perf_counter() - start
+
+    assert resp.status_code == 200
+    # Sequential would be >= 1.2s; concurrent stays well below that.
+    assert elapsed < 1.0, f"languages filtered sequentially ({elapsed:.2f}s)"
+    assert len(mocks["embedding_service"].filter_results.call_args_list) == 4
+
+
 # ── Languages endpoint ─────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

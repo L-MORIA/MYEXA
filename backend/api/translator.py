@@ -1,6 +1,7 @@
 import logging
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from config import Config
@@ -36,7 +37,6 @@ class Translator:
     def __init__(self):
         self._cache = {}
         self._source = Config.SOURCE_LANGUAGE
-        self._sid = _new_yandex_sid()
 
     def translate(self, text: str, target_language: str) -> str:
         """Translate ``text`` into ``target_language``.
@@ -87,7 +87,10 @@ class Translator:
         resp = self._get_with_retry(
             YANDEX_URL,
             {
-                "id": self._sid + "-0-0",
+                # A fresh session id per request: the translations now run in
+                # parallel, and sharing one id across concurrent requests can
+                # make the provider drop them.
+                "id": _new_yandex_sid() + "-0-0",
                 "srv": "tr",
                 "source": self._source,
                 "lang": f"{self._source}-{target}",
@@ -127,11 +130,27 @@ class Translator:
 
         The source language is preserved as ``"original"`` so callers always
         have the unmodified query available.
+
+        The languages are translated in parallel: the calls are independent
+        network round-trips, and doing them one after another added the
+        provider's latency to every one of them.
         """
         results = {"original": text}
         results[self._source] = text
-        for lang in languages:
-            if lang == self._source:
-                continue
-            results[lang] = self.translate(text, lang)
+
+        targets = [lang for lang in languages if lang != self._source]
+        if not targets:
+            return results
+
+        if len(targets) == 1:
+            results[targets[0]] = self.translate(text, targets[0])
+            return results
+
+        with ThreadPoolExecutor(max_workers=len(targets)) as pool:
+            futures = {
+                lang: pool.submit(self.translate, text, lang)
+                for lang in targets
+            }
+            for lang, future in futures.items():
+                results[lang] = future.result()
         return results

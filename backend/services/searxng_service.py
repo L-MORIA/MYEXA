@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import UTC, datetime
 
 import requests
@@ -46,6 +47,8 @@ class SearxngService(SearchProvider):
     def __init__(self, base_url: str = None, timeout: int = None):
         self.base_url = (base_url if base_url is not None else Config.SEARXNG_URL).rstrip("/")
         self.timeout = timeout if timeout is not None else Config.SEARXNG_TIMEOUT
+        # query + language -> (timestamp, results)
+        self._cache: dict[tuple, tuple[float, list[dict]]] = {}
 
     def is_configured(self) -> bool:
         """Return True when the fallback may be used.
@@ -60,6 +63,15 @@ class SearxngService(SearchProvider):
         """Search SearXNG and return results in the MYEXA result format."""
         if not self.is_configured():
             raise SearxngError("SearXNG fallback is disabled")
+
+        cache_key = (query, language, num_results)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            age = time.monotonic() - cached[0]
+            if age < Config.SEARXNG_CACHE_TTL:
+                # A copy: the caller annotates and scores the items in place.
+                return [dict(item) for item in cached[1]]
+            del self._cache[cache_key]
 
         params = {
             "q": query,
@@ -86,7 +98,55 @@ class SearxngService(SearchProvider):
         raw_results = data.get("results") or []
         parsed = [self._parse_result(item, language) for item in raw_results[:num_results]]
         self._normalize_scores(parsed)
+
+        # An empty answer is not the same thing as "nothing found": when every
+        # engine failed — a rate limit from the upstream engines, for example
+        # — the instance answers with an empty list and a list of failures.
+        # Reporting that as "no results" would hide a broken backend.
+        failures = self._parse_failures(data.get("unresponsive_engines"))
+        if not parsed and failures:
+            reasons = "; ".join(f"{name}: {reason}" for name, reason in failures)
+            raise SearxngError(f"no search engine answered ({reasons})")
+
+        self._remember(cache_key, parsed)
         return parsed
+
+    def _remember(self, cache_key: tuple, results: list[dict]) -> None:
+        """Store a result set, keeping the cache bounded."""
+        if Config.SEARXNG_CACHE_TTL <= 0:
+            return
+        self._cache[cache_key] = (time.monotonic(), [dict(item) for item in results])
+        while len(self._cache) > max(1, Config.SEARXNG_CACHE_SIZE):
+            oldest = next(iter(self._cache))
+            del self._cache[oldest]
+
+    @staticmethod
+    def _parse_failures(raw) -> list[tuple[str, str]]:
+        """Normalise the ``unresponsive_engines`` field of the SearXNG answer.
+
+        The field comes in several shapes depending on the SearXNG version:
+        a list of ``[name, reason]`` pairs, a list of dicts, or a flat pair.
+        """
+        failures: list[tuple[str, str]] = []
+        if not raw:
+            return failures
+
+        if isinstance(raw, dict):
+            raw = [raw]
+        elif (isinstance(raw, list) and len(raw) == 2
+                and all(isinstance(part, str) for part in raw)):
+            raw = [raw]
+
+        for entry in raw or []:
+            if isinstance(entry, dict):
+                name = entry.get("engine") or entry.get("name") or "?"
+                reason = entry.get("error_type") or entry.get("reason") or "unknown error"
+            elif isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                name, reason = str(entry[0]), str(entry[1])
+            else:
+                name, reason = "?", str(entry)
+            failures.append((name, reason))
+        return failures
 
     @staticmethod
     def _parse_result(item: dict, language: str) -> dict:

@@ -47,6 +47,11 @@ class Config:
     SEARXNG_URL = os.getenv("SEARXNG_URL", "http://127.0.0.1:8080")
     SEARXNG_ENABLED = os.getenv("SEARXNG_ENABLED", "1").lower() not in ("0", "false", "no")
     SEARXNG_TIMEOUT = int(os.getenv("SEARXNG_TIMEOUT", "20"))
+    # Results are reused for this many seconds. Repeating the same query must
+    # not hammer the upstream engines: a burst of searches quickly earns an
+    # HTTP 429 from Brave and Google, and the instance is left with nothing.
+    SEARXNG_CACHE_TTL = int(os.getenv("SEARXNG_CACHE_TTL", "60"))
+    SEARXNG_CACHE_SIZE = int(os.getenv("SEARXNG_CACHE_SIZE", "64"))
 
     DATABASE_PATH = _get_db_path()
     HOST = os.getenv("HOST", "0.0.0.0")

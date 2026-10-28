@@ -27,6 +27,9 @@ search:
   autocomplete: ""
 
 outgoing:
-  # Keep a single slow engine from stalling the whole query.
-  request_timeout: 8.0
-  max_request_timeout: 15.0
+  # Keep a single slow engine from stalling the whole query. The default of
+  # 3 s is used on purpose: with a longer timeout one hanging engine (Brave
+  # does that regularly) delayed the whole search by seconds, while the other
+  # engines had already answered.
+  request_timeout: 3.0
+  max_request_timeout: 6.0

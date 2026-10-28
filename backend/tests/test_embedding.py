@@ -315,3 +315,124 @@ class TestBatchFilter:
             with patch.object(svc, "calculate_similarity", return_value=0.9):
                 out = svc.batch_filter("q", {"ru": [{"title": "a"}], "en": [{"title": "b"}]})
         assert set(out) == {"ru", "en"}
+
+
+class _FakeModel:
+    """A deterministic stand-in for SentenceTransformer.
+
+    The vector of a text depends on its first character, so the similarity
+    of two texts is reproducible and differs from text to text.
+    """
+
+    def __init__(self, broken_batch: bool = False):
+        self.calls = []
+        self.broken_batch = broken_batch
+
+    def eval(self):
+        return self
+
+    def encode(self, text, convert_to_tensor=True, show_progress_bar=False):
+        import torch
+
+        texts = [text] if isinstance(text, str) else list(text)
+        self.calls.append(list(texts))
+        vectors = []
+        for item in texts:
+            code = (ord(item[0]) if item else 0) % 97 / 97.0
+            vectors.append([code, 1.0 - code, 0.0])
+        if self.broken_batch and not isinstance(text, str):
+            # Return the wrong number of vectors — the batch must be rejected.
+            return torch.tensor(vectors[:-1])
+        return torch.tensor(vectors)
+
+
+class TestBatchedScoring:
+    """The filter must embed every text in one model call.
+
+    One forward pass per text made the relevance filter the slowest stage of
+    a search: 40 results meant 40 model calls.
+    """
+
+    def _svc(self, broken_batch: bool = False):
+        with patch("services.embedding.SentenceTransformer",
+                   return_value=_FakeModel(broken_batch=broken_batch)):
+            return EmbeddingService()
+
+    def test_all_items_are_encoded_in_one_call(self):
+        svc = self._svc()
+        items = [
+            {"title": "Alpha", "highlights": "alpha snippet"},
+            {"title": "Beta", "highlights": "beta snippet"},
+            {"title": "Gamma", "highlights": "gamma snippet"},
+        ]
+        svc.filter_results("query", items, threshold=0.0)
+
+        # One call for the query, one call for all item texts.
+        assert len(svc.model.calls) == 2
+        assert len(svc.model.calls[1]) == 6  # title + snippet per item
+
+    def test_batched_and_per_item_scores_are_identical(self):
+        """The fast path must not change a single score."""
+        items = [
+            {"title": "Alpha", "highlights": "alpha snippet"},
+            {"title": "Beta", "highlights": ""},
+            {"title": "", "highlights": "gamma snippet"},
+        ]
+
+        batched_svc = self._svc()
+        batched = batched_svc.filter_results("query", [dict(i) for i in items], threshold=0.0)
+
+        per_item_svc = self._svc(broken_batch=True)
+        per_item = per_item_svc.filter_results("query", [dict(i) for i in items], threshold=0.0)
+
+        assert len(batched) == len(per_item) == 3
+        for left, right in zip(batched, per_item, strict=True):
+            assert abs(left["embedding_score"] - right["embedding_score"]) < 1e-6
+            assert left["title"] == right["title"]
+
+    def test_wrong_number_of_vectors_falls_back_to_the_per_item_path(self):
+        svc = self._svc(broken_batch=True)
+        items = [
+            {"title": "Alpha", "highlights": "alpha snippet"},
+            {"title": "Beta", "highlights": "beta snippet"},
+        ]
+        result = svc.filter_results("query", items, threshold=0.0)
+        # The batch was rejected, but every item was still scored.
+        assert len(result) == 2
+        # 1 query + 1 rejected batch + one call per text (title and snippet
+        # of each of the two items) — the per-item path.
+        assert len(svc.model.calls) == 6
+
+    def test_batch_failure_falls_back_to_the_per_item_path(self):
+        svc = self._svc()
+
+        original_encode = svc.model.encode
+        state = {"failed": False}
+
+        def flaky(text, convert_to_tensor=True, show_progress_bar=False):
+            if isinstance(text, list) and not state["failed"]:
+                state["failed"] = True
+                raise RuntimeError("batch too long")
+            return original_encode(text, convert_to_tensor=convert_to_tensor,
+                                   show_progress_bar=show_progress_bar)
+
+        svc.model.encode = flaky
+        items = [
+            {"title": "Alpha", "highlights": "alpha snippet"},
+            {"title": "Beta", "highlights": "beta snippet"},
+        ]
+        result = svc.filter_results("query", items, threshold=0.0)
+        assert len(result) == 2
+
+    def test_items_without_text_are_skipped(self):
+        svc = self._svc()
+        items = [{"title": "", "highlights": ""}, {"title": "Alpha", "highlights": ""}]
+        result = svc.filter_results("query", items, threshold=0.0)
+        assert len(result) == 1
+        assert result[0]["title"] == "Alpha"
+
+    def test_the_query_is_embedded_separately(self):
+        svc = self._svc()
+        svc.filter_results("query", [{"title": "Alpha", "highlights": "a"}], threshold=0.0)
+        assert svc.model.calls[0] == ["query"]
+
