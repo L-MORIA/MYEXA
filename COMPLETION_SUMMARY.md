@@ -4,7 +4,7 @@
 > Актуальное состояние: см. `README.md`, `API.md`, `SECURITY_AUDIT.md` (аудит 2026-10-25).
 > С тех пор изменено: языки RU+EN+DE+IT, переводчик Yandex+Google (без LibreTranslate),
 > модель paraphrase-multilingual-MiniLM-L12-v2, HOST по умолчанию 127.0.0.1,
-> валидация API, лимиты OCR, индекс релевантности 0–100, 129 тестов.
+> валидация API, лимиты OCR, индекс релевантности 0–1 (в процентах на фронтенде), 453 теста.
 
 
 **Project**: MYEXA - Advanced Multi-Language Search Engine  
@@ -21,7 +21,7 @@ A full-stack search engine application with the following components:
 ### Backend (FastAPI)
 - Multi-language search integration with Exa API
 - Embedding-based result filtering (sentence-transformers)
-- Smart relevance indexing system (0-100 score)
+- Smart relevance indexing system (0-1 score, shown as a percentage)
 - OCR support (PyPDF2 + Tesseract) for PDF/image processing
 - Custom site database management
 - SQLite persistent storage
@@ -56,7 +56,8 @@ A full-stack search engine application with the following components:
 - Configurable relevance threshold
 
 ✅ **Smart Indexing System**
-- Relevance Score (40%)
+- Embedding similarity (15%)
+- Provider relevance score (25%)
 - Domain Authority (20%)
 - Content Freshness (15%)
 - Language Match (15%)

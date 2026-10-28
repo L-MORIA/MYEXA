@@ -6,7 +6,7 @@ Advanced multi-language search engine with embedding-based filtering, OCR, and c
 
 - **Multi-Language Search** — Russian, English, German, Italian simultaneously via Exa API
 - **Embedding-Based Filtering** — sentence-transformers for semantic relevance scoring
-- **Smart Indexing** — relevance index based on embedding similarity (40%), domain authority (20%), freshness (15%), language match (15%), custom boost (10%)
+- **Smart Indexing** — relevance index (0–1, the frontend shows it as a percentage): embedding similarity (15%), provider relevance score (25%), domain authority (20%), freshness (15%), language match (15%), custom boost (10%)
 - **OCR Support** — extract text from PDF and images (PyPDF2 + Tesseract)
 - **Custom Site Database** — curated site collection with categories, tags and word-by-word matching ranked by hit count
 - **Vue 3 Web Interface** — modern responsive UI on port 3005

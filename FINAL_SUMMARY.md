@@ -4,7 +4,7 @@
 > Актуальное состояние: см. `README.md`, `API.md`, `SECURITY_AUDIT.md` (аудит 2026-10-25).
 > С тех пор изменено: языки RU+EN+DE+IT, переводчик Yandex+Google (без LibreTranslate),
 > модель paraphrase-multilingual-MiniLM-L12-v2, HOST по умолчанию 127.0.0.1,
-> валидация API, лимиты OCR, индекс релевантности 0–100, 129 тестов.
+> валидация API, лимиты OCR, индекс релевантности 0–1 (в процентах на фронтенде), 453 теста.
 
 
 **Project Name**: MYEXA - Advanced Multi-Language Search Engine  
@@ -24,7 +24,7 @@
 | Web interface on port 3005 | ✅ | Vue 3 responsive UI |
 | Multi-language search (3 langs) | ✅ | EN, DE, IT with auto-translation |
 | Embedding-based filtering | ✅ | sentence-transformers integration |
-| Custom indexing system | ✅ | Relevance score 0-100 |
+| Custom indexing system | ✅ | Relevance score 0-1 (shown as a percentage) |
 | OCR support | ✅ | PyPDF2 + Tesseract (fallback) |
 | Custom site database | ✅ | Add/remove/search sites |
 | FastAPI backend | ✅ | 6 endpoints, async operations |
@@ -137,7 +137,7 @@ frontend/
 
 ### 3. Smart Relevance Indexing
 ```
-Index (0-100) = 
+Index (0-1, the frontend multiplies by 100) = 
   (embedding_score × 0.40) +
   (domain_authority × 0.20) +
   (content_freshness × 0.15) +

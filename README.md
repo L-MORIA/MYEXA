@@ -9,7 +9,7 @@ Multi-language search engine with embedding-based filtering, OCR support, and cu
 - Embedding-based relevance filtering (sentence-transformers paraphrase-multilingual-MiniLM-L12-v2)
 - OCR support (PyPDF2 + Tesseract) for PDF and images, with upload size and page limits
 - SQLite database for results and custom sites (auto-created on first start)
-- Relevance indexing 0–100 (domain authority, freshness, custom boost)
+- Relevance indexing 0–1, shown as a percentage (embedding similarity, provider score, domain authority, freshness, language match, custom boost)
 - Custom site database with word-by-word matching, ranked by hit count
 - Input validation on all API endpoints (blank queries, unknown languages, oversized requests rejected)
 - Vue 3 web interface on port 3005

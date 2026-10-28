@@ -4,6 +4,12 @@
 
 FastAPI-based search engine. Integrates with Exa API, provides multi-language search, embedding filtering, OCR, and custom site management.
 
+**Search providers.** Exa is the primary provider. When it is unreachable — a
+blocked network answers HTTP 403 — the search falls back to a local SearXNG
+instance automatically. The answer names the provider in `meta[<lang>].provider`
+(`"exa"` or `"searxng"`) and, for the fallback, the reason in
+`meta[<lang>].fallback_reason`.
+
 **Base URL:** `http://localhost:3005`
 
 ---
@@ -78,7 +84,7 @@ or `num_results` outside 1–50.
 ```
 
 - `embedding_score` — semantic similarity (0–1), only when `filter_by_relevance=true`
-- `relevance_index` — weighted score (0–100)
+- `relevance_index` — weighted score (0–1; the frontend multiplies it by 100 for display)
 - `translations` — Yandex Translate with Google Translate AJAX fallback (free, no key required)
 - `custom_db` entries — sites matching at least one query word (2+ chars) in
   URL/title/tags, ranked by `match_count` (number of distinct matched words)

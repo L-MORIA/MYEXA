@@ -4,7 +4,7 @@
 > Актуальное состояние: см. `README.md`, `API.md`, `SECURITY_AUDIT.md` (аудит 2026-10-25).
 > С тех пор изменено: языки RU+EN+DE+IT, переводчик Yandex+Google (без LibreTranslate),
 > модель paraphrase-multilingual-MiniLM-L12-v2, HOST по умолчанию 127.0.0.1,
-> валидация API, лимиты OCR, индекс релевантности 0–100, 129 тестов.
+> валидация API, лимиты OCR, индекс релевантности 0–1 (в процентах на фронтенде), 453 теста.
 
 
 **Generated**: 2026-04-08 17:23:29 UTC  
@@ -116,7 +116,7 @@ MYEXA/
 - ✅ Multi-language search (EN, DE, IT)
 - ✅ Automatic query translation
 - ✅ Embedding-based filtering
-- ✅ Custom indexing system (0-100 score)
+- ✅ Custom indexing system (0-1 score, shown as a percentage)
 - ✅ OCR support (PyPDF2 + Tesseract)
 - ✅ Custom site database
 - ✅ Search history tracking
@@ -154,7 +154,8 @@ MYEXA/
 - ✅ Custom site boosting
 
 ### Filtering & Indexing
-- ✅ Embedding similarity (40%)
+- ✅ Embedding similarity (15%)
+- ✅ Provider relevance score (25%)
 - ✅ Domain authority (20%)
 - ✅ Content freshness (15%)
 - ✅ Language match (15%)
