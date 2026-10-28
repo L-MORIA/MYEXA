@@ -145,15 +145,12 @@ async def search(query_data: SearchQuery):
                 _, results = outcome
                 all_results[lang] = results
 
-        # Every language failed -> the service is down, not "no results".
-        if provider_errors and len(provider_errors) == len(languages):
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "Search backend unavailable: "
-                    + "; ".join(f"{lang}: {msg}" for lang, msg in provider_errors.items())
-                ),
-            )
+        # A provider outage is remembered here and turned into a 503 at the
+        # end — only if there is nothing at all to show. The custom database is
+        # searched locally and keeps working without any network access, so a
+        # total Exa outage must not take the local results down with it.
+        if provider_errors:
+            logger.error("Search provider failed: %s", provider_errors)
 
         # Detect the language of every result. This used to be a hardcoded
         # `language_score = 1.0` ("assume language already matched"), which was
@@ -222,10 +219,24 @@ async def search(query_data: SearchQuery):
                     source="exa"
                 )
 
-        # Search custom database if enabled
+        # Search custom database if enabled. This works entirely offline, so it
+        # is the only thing that can still answer a query while the search
+        # provider is unreachable.
         if query_data.search_custom_db:
             custom_results = site_db_service.search_in_custom_db(query)
             ranked_results["custom_db"] = custom_results
+
+        # Every language failed AND the local database has nothing either ->
+        # the backend is down, not "no results".
+        all_languages_failed = bool(provider_errors) and len(provider_errors) == len(languages)
+        if all_languages_failed and not ranked_results.get("custom_db"):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Search backend unavailable: "
+                    + "; ".join(f"{lang}: {msg}" for lang, msg in provider_errors.items())
+                ),
+            )
 
         # Save to history
         db.save_search_history(query, ",".join(languages), sum(len(r) for r in ranked_results.values()))

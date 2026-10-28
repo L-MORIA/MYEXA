@@ -30,6 +30,11 @@ def _parse_port() -> int:
 
 class Config:
     EXA_API_KEY = os.getenv("EXA_API_KEY", "")
+
+    # Base URL of the Exa API. Overridable so the backend can be pointed at a
+    # mirror or a local stub — useful when api.exa.ai is unreachable from the
+    # current network (Cloudflare blocks the whole host for some IP ranges).
+    EXA_API_URL = os.getenv("EXA_API_URL", "https://api.exa.ai")
     DATABASE_PATH = _get_db_path()
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = _parse_port()

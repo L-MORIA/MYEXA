@@ -36,7 +36,7 @@ class ExaService:
         """
         try:
             resp = requests.post(
-                f"{EXA_API_URL}{endpoint}",
+                f"{Config.EXA_API_URL}{endpoint}",
                 json=data,
                 headers={"x-api-key": self.api_key},
                 timeout=15,

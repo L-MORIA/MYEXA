@@ -510,16 +510,43 @@ async def test_rejects_out_of_range_threshold(api_client, client):
 
 
 @pytest.mark.asyncio
-async def test_returns_503_when_exa_down(api_client, client):
+async def test_returns_503_when_exa_down_and_no_local_results(api_client, client):
     """A provider outage must not look like 'no results found'."""
     mocks, _ = client
 
     mocks["translator"].translate_to_multiple.return_value = {"original": "q", "ru": "q"}
     mocks["exa_service"].search.side_effect = ExaError("Exa API error 403")
+    mocks["site_db_service"].search_in_custom_db.return_value = []
 
     resp = await api_client.post("/api/search", json={"query": "q", "languages": ["ru"]})
     assert resp.status_code == 503
     assert "403" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_local_custom_db_still_answers_when_provider_is_down(api_client, client):
+    """The custom database is searched locally and needs no network.
+
+    A total provider outage must not take the local results down with it.
+    """
+    mocks, _ = client
+
+    mocks["translator"].translate_to_multiple.return_value = {"original": "q", "ru": "q"}
+    mocks["exa_service"].search.side_effect = ExaError("Exa API error 403")
+    mocks["embedding_service"].filter_results.side_effect = lambda q, items, **kw: items
+    mocks["indexing_service"].rank_results.side_effect = lambda items, urls: items
+    mocks["site_db_service"].get_site_urls.return_value = []
+    mocks["site_db_service"].search_in_custom_db.return_value = [
+        {"id": 1, "url": "https://local.test/a", "title": "Local hit", "category": "news"}
+    ]
+
+    resp = await api_client.post("/api/search", json={"query": "q", "languages": ["ru"]})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["results"]["custom_db"]) == 1
+    assert data["results"]["ru"] == []
+    # The reason for the empty language tab must be visible.
+    assert "error" in data["meta"]["ru"]
 
 
 @pytest.mark.asyncio
