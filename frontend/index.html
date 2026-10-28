@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MYEXA - Advanced Search Engine</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-    <link rel="stylesheet" href="/static/style.css?v=2">
+    <link rel="stylesheet" href="/static/style.css?v=4">
 </head>
 <body>
     <div id="app">
@@ -17,6 +17,12 @@
         </header>
 
         <main class="container">
+            <!-- Inline notice (replaces blocking alert() dialogs) -->
+            <div v-if="notice" :class="['notice', 'notice-' + notice.type]" role="alert">
+                <span>{{ notice.message }}</span>
+                <button type="button" class="notice-close" @click="clearNotice()" aria-label="Dismiss">×</button>
+            </div>
+
             <!-- Search Section -->
             <section class="search-section">
                 <div class="search-box">
@@ -27,49 +33,61 @@
                         placeholder="Enter search query..."
                         class="search-input"
                     >
-                    <button @click="performSearch" class="search-btn">Search</button>
+                    <button @click="performSearch" class="search-btn" :disabled="loading">
+                        {{ loading ? 'Searching…' : 'Search' }}
+                    </button>
                 </div>
 
-                <!-- Language Selection -->
+                <!-- Language Selection — built from GET /api/languages -->
                 <div class="language-selector">
                     <label>Languages:</label>
                     <div class="lang-checkboxes">
-                        <label><input v-model="selectedLanguages" type="checkbox" value="ru"> Русский</label>
-                        <label><input v-model="selectedLanguages" type="checkbox" value="en"> English</label>
-                        <label><input v-model="selectedLanguages" type="checkbox" value="de"> Deutsch</label>
-                        <label><input v-model="selectedLanguages" type="checkbox" value="it"> Italiano</label>
+                        <label v-for="lang in languages" :key="lang.code">
+                            <input v-model="selectedLanguages" type="checkbox" :value="lang.code">
+                            {{ lang.label }}
+                        </label>
                     </div>
+                    <small v-if="!languages.length" class="hint">Loading languages…</small>
                 </div>
 
                 <!-- Options -->
                 <div class="options">
                     <label><input v-model="filterByRelevance" type="checkbox"> Filter by Relevance</label>
                     <label><input v-model="searchCustomDB" type="checkbox"> Search Custom DB</label>
-                    <input v-model.number="numResults" type="number" min="5" max="50" placeholder="Results">
+                    <input v-model.number="numResults" type="number" min="1" max="100" placeholder="Results">
                 </div>
 
                 <!-- OCR Upload -->
-                <div class="ocr-section">
+                <section class="ocr-section">
                     <h3>OCR - Extract Text from PDF/Image</h3>
-                    <input 
-                        @change="handleFileUpload" 
-                        type="file" 
-                        accept=".pdf,.jpg,.jpeg,.png,.bmp,.tiff"
-                        class="file-input"
-                    >
-                    <button @click="performOCR" class="ocr-btn" v-if="uploadedFile">Process OCR</button>
-                </div>
+                    <div class="ocr-controls">
+                        <input 
+                            @change="handleFileUpload" 
+                            type="file" 
+                            accept=".pdf,.jpg,.jpeg,.png,.bmp,.tiff"
+                            class="file-input"
+                        >
+                        <select v-model="ocrLanguage" class="ocr-lang-select" title="OCR language">
+                            <option value="rus">Русский</option>
+                            <option value="eng">English</option>
+                            <option value="deu">Deutsch</option>
+                            <option value="ita">Italiano</option>
+                        </select>
+                        <button @click="performOCR" class="ocr-btn" v-if="uploadedFile" :disabled="loading">Process OCR</button>
+                    </div>
+                </section>
             </section>
 
-            <!-- Tabs -->
+            <!-- Tabs — built from the languages returned by the API -->
             <div class="tabs">
                 <button 
                     v-for="tab in tabs" 
-                    :key="tab"
-                    @click="activeTab = tab"
-                    :class="['tab', { active: activeTab === tab }]"
+                    :key="tab.code"
+                    @click="activeLang = tab.code"
+                    :class="['tab', { active: activeLang === tab.code }]"
                 >
-                    {{ tab }}
+                    {{ tab.label }}
+                    <span v-if="resultCount(tab.code)" class="tab-count">{{ resultCount(tab.code) }}</span>
                 </button>
             </div>
 
@@ -83,9 +101,14 @@
 
                 <div v-else>
                     <!-- Language Results -->
-                        <div v-if="activeTab !== 'Custom DB'" class="language-results">
-                            <h2>{{ activeTab }} Results</h2>
-                            <div v-if="activeTabResults.length" class="results-list">
+                    <div v-if="activeLang !== 'custom_db'" class="language-results">
+                        <h2>{{ activeTabLabel }} Results</h2>
+
+                        <div v-if="metaWarning(activeLang)" class="meta-warning">
+                            {{ metaWarning(activeLang) }}
+                        </div>
+
+                        <div v-if="activeTabResults.length" class="results-list">
                             <div 
                                 v-for="(result, index) in activeTabResults" 
                                 :key="index"
@@ -93,22 +116,25 @@
                             >
                                 <div class="result-header">
                                     <h3>
-                                        <a :href="result.url" target="_blank">{{ result.title }}</a>
+                                        <a :href="result.url" target="_blank" rel="noopener">{{ result.title }}</a>
                                     </h3>
-                                    <span class="relevance-badge">{{ (result.relevance_index || 0).toFixed(1) }}</span>
+                                    <span class="relevance-badge">{{ ((result.relevance_index || 0) * 100).toFixed(1) }}%</span>
                                 </div>
                                 <p class="result-url">{{ result.url }}</p>
                                 <p class="result-snippet">{{ result.highlights?.substring(0, 200) }}...</p>
                                 <div class="result-meta">
                                     <span class="score">Embedding: {{ (result.embedding_score || 0).toFixed(2) }}</span>
+                                    <span v-if="result.detected_language" class="score">Lang: {{ result.detected_language }}</span>
+                                    <span v-if="result.language_mismatch" class="score warn">language mismatch</span>
                                     <button @click="addToCustomDB(result)" class="add-btn">+ Add to DB</button>
                                 </div>
                             </div>
                         </div>
+                        <div v-else class="no-results">Nothing passed the relevance threshold for this language.</div>
                     </div>
 
                     <!-- Custom DB Results -->
-                    <div v-if="activeTab === 'Custom DB'" class="custom-db-results">
+                    <div v-if="activeLang === 'custom_db'" class="custom-db-results">
                         <h2>Custom Database Results</h2>
                         <div v-if="activeTabResults.length" class="results-list">
                             <div 
@@ -118,7 +144,7 @@
                             >
                                 <div class="result-header">
                                     <h3>
-                                        <a :href="site.url" target="_blank">{{ site.title }}</a>
+                                        <a :href="site.url" target="_blank" rel="noopener">{{ site.title }}</a>
                                     </h3>
                                     <span class="category-badge">{{ site.category }}</span>
                                 </div>
@@ -162,6 +188,6 @@
     </div>
 
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="/static/script.js?v=2"></script>
+    <script src="/static/script.js?v=4"></script>
 </body>
 </html>

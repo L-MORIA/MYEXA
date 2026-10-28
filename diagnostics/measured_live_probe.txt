@@ -1,0 +1,76 @@
+2026-10-28 12:24:49,353 [ERROR] services.exa_service: Exa API error 403: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!
+2026-10-28 12:24:50,313 [ERROR] services.exa_service: Exa API error 403: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!
+2026-10-28 12:24:51,258 [ERROR] services.exa_service: Exa API error 403: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!
+2026-10-28 12:24:52,206 [ERROR] services.exa_service: Exa API error 403: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!
+2026-10-28 12:24:53,154 [ERROR] services.exa_service: Exa API error 403: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!
+2026-10-28 12:24:54,094 [ERROR] services.exa_service: Exa API error 403: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!
+2026-10-28 12:24:55,028 [ERROR] services.exa_service: Exa API error 403: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!
+2026-10-28 12:24:55,978 [ERROR] services.exa_service: Exa API error 403: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!
+EXA key present: True (len=36)
+Source language: ru
+Query: 'искусственный интеллект в медицине'
+
+==============================================================================
+1) TRANSLATION QUALITY (live)
+==============================================================================
+  ru: 'искусственный интеллект в медицине'   [identical_to_source=True]
+  en: 'artificial intelligence in medicine'   [identical_to_source=False]
+  de: 'Künstliche Intelligenz in der Medizin'   [identical_to_source=False]
+  it: 'intelligenza artificiale in medicina'   [identical_to_source=False]
+
+==============================================================================
+2) EXA SEARCH: with vs without includeDomains
+==============================================================================
+
+--- ru ---  query='искусственный интеллект в медицине'
+  includeDomains = ['lenta.ru', 'ria.ru', 'habr.com', 'vc.ru', 'tass.ru']
+  unrestricted: 0 results | restricted: 0 results
+
+--- en ---  query='artificial intelligence in medicine'
+  includeDomains = (none)
+  unrestricted: 0 results | restricted: 0 results
+
+--- de ---  query='Künstliche Intelligenz in der Medizin'
+  includeDomains = ['de.wikipedia.org', 'spiegel.de', 'zeit.de', 'heise.de']
+  unrestricted: 0 results | restricted: 0 results
+
+--- it ---  query='intelligenza artificiale in medicina'
+  includeDomains = ['it.wikipedia.org', 'repubblica.it', 'corriere.it']
+  unrestricted: 0 results | restricted: 0 results
+
+==============================================================================
+3) RAW EXA PAYLOAD INSPECTION (ru, no domain filter)
+==============================================================================
+{}

@@ -1,10 +1,10 @@
 import logging
 import os
+
 import PyPDF2
-from PIL import Image
 import pytesseract
 from config import Config
-from typing import Dict
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class OCRService:
         if self.tesseract_path != "tesseract":
             pytesseract.pytesseract.tesseract_cmd = self.tesseract_path
 
-    def extract_from_pdf(self, file_path: str) -> Dict:
+    def extract_from_pdf(self, file_path: str) -> dict:
         try:
             text = self._extract_pdf_text(file_path)
             if text.strip():
@@ -47,7 +47,7 @@ class OCRService:
             text += pytesseract.image_to_string(image)
         return text
 
-    def extract_from_image(self, file_path: str, language: str = "eng") -> Dict:
+    def extract_from_image(self, file_path: str, language: str = "eng") -> dict:
         try:
             image = Image.open(file_path)
             text = pytesseract.image_to_string(image, lang=language)
@@ -56,7 +56,7 @@ class OCRService:
             logger.error("Image OCR error: %s", e)
             return {"text": "", "confidence": 0.0, "method": "Failed", "success": False, "error": str(e)}
 
-    def process_file(self, file_path: str, language: str = "eng") -> Dict:
+    def process_file(self, file_path: str, language: str = "eng") -> dict:
         if not os.path.exists(file_path):
             return {"text": "", "confidence": 0.0, "method": "Failed", "success": False, "error": "File not found"}
 

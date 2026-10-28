@@ -1,0 +1,140 @@
+==============================================================================
+all languages, high accuracy
+==============================================================================
+   OK  ru         ИИ в медицине: диагностика по снимкам
+   OK  ru         Машинное обучение в диагностике рака
+   OK  ru         ChatGPT в клинической практике: что говорят 
+   OK  ru         Регулирование медицинского ИИ в ЕС и США
+   OK  ru         Нейросети в анализе электрокардиограмм
+   OK  ru         Стоматология и телемедицина: цифровые диагно
+   OK  ru         Кулинарные рецепты с тыквой на Хэллоуин
+   OK  ru         Обзор смартфонов среднего класса
+   OK  ru         Городские велосипедные маршруты
+   OK  ru         Как выбрать кофемолку для дома
+   OK  en         AI in Medicine: How Machine Learning Is Chan
+   OK  en         Deep Learning for Early Cancer Detection
+   OK  en         Clinicians Report on LLM Use in Everyday Pra
+   OK  en         Regulating Clinical AI Across Jurisdictions
+   OK  en         Neural Networks for ECG Interpretation
+   OK  en         Pumpkin Recipes for Autumn
+   OK  en         Mid-Range Smartphone Reviews
+   OK  en         Urban Cycling Routes Compared
+   OK  de         KI in der Medizin: Diagnose per Bildgebung
+   OK  de         Deep Learning beim Krebsscreening
+   OK  de         Sprachmodelle in der klinischen Praxis
+   OK  de         Rechtliche Anforderungen an Medizin-KI
+   OK  de         Kürbissuppe für den Herbst
+   OK  de         Fahrradrouten durch die Stadt
+   OK  it         IA in medicina: la diagnosi con le immagini
+   OK  it         Deep learning nella diagnosi precoce dei tum
+   OK  it         L'uso dei modelli linguistici nella pratica 
+   OK  it         Regolamentazione dell'IA clinica in Europa
+   OK  it         Ricette con la zucca per l'autunno
+   OK  it         Gite in bicicletta in città
+  --> accuracy on corpus: 30/30 = 100%
+
+==============================================================================
+all languages, low accuracy
+==============================================================================
+   OK  ru         ИИ в медицине: диагностика по снимкам
+   OK  ru         Машинное обучение в диагностике рака
+   OK  ru         ChatGPT в клинической практике: что говорят 
+   OK  ru         Регулирование медицинского ИИ в ЕС и США
+   OK  ru         Нейросети в анализе электрокардиограмм
+   OK  ru         Стоматология и телемедицина: цифровые диагно
+   OK  ru         Кулинарные рецепты с тыквой на Хэллоуин
+   OK  ru         Обзор смартфонов среднего класса
+   OK  ru         Городские велосипедные маршруты
+   OK  ru         Как выбрать кофемолку для дома
+   OK  en         AI in Medicine: How Machine Learning Is Chan
+   OK  en         Deep Learning for Early Cancer Detection
+   OK  en         Clinicians Report on LLM Use in Everyday Pra
+   OK  en         Regulating Clinical AI Across Jurisdictions
+   OK  en         Neural Networks for ECG Interpretation
+   OK  en         Pumpkin Recipes for Autumn
+   OK  en         Mid-Range Smartphone Reviews
+   OK  en         Urban Cycling Routes Compared
+   OK  de         KI in der Medizin: Diagnose per Bildgebung
+   OK  de         Deep Learning beim Krebsscreening
+   OK  de         Sprachmodelle in der klinischen Praxis
+   OK  de         Rechtliche Anforderungen an Medizin-KI
+   OK  de         Kürbissuppe für den Herbst
+   OK  de         Fahrradrouten durch die Stadt
+   OK  it         IA in medicina: la diagnosi con le immagini
+   OK  it         Deep learning nella diagnosi precoce dei tum
+   OK  it         L'uso dei modelli linguistici nella pratica 
+   OK  it         Regolamentazione dell'IA clinica in Europa
+   OK  it         Ricette con la zucca per l'autunno
+   OK  it         Gite in bicicletta in città
+  --> accuracy on corpus: 30/30 = 100%
+
+==============================================================================
+restricted to ru/en/de/it, high
+==============================================================================
+   OK  ru         ИИ в медицине: диагностика по снимкам
+   OK  ru         Машинное обучение в диагностике рака
+   OK  ru         ChatGPT в клинической практике: что говорят 
+   OK  ru         Регулирование медицинского ИИ в ЕС и США
+   OK  ru         Нейросети в анализе электрокардиограмм
+   OK  ru         Стоматология и телемедицина: цифровые диагно
+   OK  ru         Кулинарные рецепты с тыквой на Хэллоуин
+   OK  ru         Обзор смартфонов среднего класса
+   OK  ru         Городские велосипедные маршруты
+   OK  ru         Как выбрать кофемолку для дома
+   OK  en         AI in Medicine: How Machine Learning Is Chan
+   OK  en         Deep Learning for Early Cancer Detection
+   OK  en         Clinicians Report on LLM Use in Everyday Pra
+   OK  en         Regulating Clinical AI Across Jurisdictions
+   OK  en         Neural Networks for ECG Interpretation
+   OK  en         Pumpkin Recipes for Autumn
+   OK  en         Mid-Range Smartphone Reviews
+   OK  en         Urban Cycling Routes Compared
+   OK  de         KI in der Medizin: Diagnose per Bildgebung
+   OK  de         Deep Learning beim Krebsscreening
+   OK  de         Sprachmodelle in der klinischen Praxis
+   OK  de         Rechtliche Anforderungen an Medizin-KI
+   OK  de         Kürbissuppe für den Herbst
+   OK  de         Fahrradrouten durch die Stadt
+   OK  it         IA in medicina: la diagnosi con le immagini
+   OK  it         Deep learning nella diagnosi precoce dei tum
+   OK  it         L'uso dei modelli linguistici nella pratica 
+   OK  it         Regolamentazione dell'IA clinica in Europa
+   OK  it         Ricette con la zucca per l'autunno
+   OK  it         Gite in bicicletta in città
+  --> accuracy on corpus: 30/30 = 100%
+
+==============================================================================
+restricted to ru/en/de/it, low
+==============================================================================
+   OK  ru         ИИ в медицине: диагностика по снимкам
+   OK  ru         Машинное обучение в диагностике рака
+   OK  ru         ChatGPT в клинической практике: что говорят 
+   OK  ru         Регулирование медицинского ИИ в ЕС и США
+   OK  ru         Нейросети в анализе электрокардиограмм
+   OK  ru         Стоматология и телемедицина: цифровые диагно
+   OK  ru         Кулинарные рецепты с тыквой на Хэллоуин
+   OK  ru         Обзор смартфонов среднего класса
+   OK  ru         Городские велосипедные маршруты
+   OK  ru         Как выбрать кофемолку для дома
+   OK  en         AI in Medicine: How Machine Learning Is Chan
+   OK  en         Deep Learning for Early Cancer Detection
+   OK  en         Clinicians Report on LLM Use in Everyday Pra
+   OK  en         Regulating Clinical AI Across Jurisdictions
+   OK  en         Neural Networks for ECG Interpretation
+   OK  en         Pumpkin Recipes for Autumn
+   OK  en         Mid-Range Smartphone Reviews
+   OK  en         Urban Cycling Routes Compared
+   OK  de         KI in der Medizin: Diagnose per Bildgebung
+   OK  de         Deep Learning beim Krebsscreening
+   OK  de         Sprachmodelle in der klinischen Praxis
+   OK  de         Rechtliche Anforderungen an Medizin-KI
+   OK  de         Kürbissuppe für den Herbst
+   OK  de         Fahrradrouten durch die Stadt
+   OK  it         IA in medicina: la diagnosi con le immagini
+   OK  it         Deep learning nella diagnosi precoce dei tum
+   OK  it         L'uso dei modelli linguistici nella pratica 
+   OK  it         Regolamentazione dell'IA clinica in Europa
+   OK  it         Ricette con la zucca per l'autunno
+   OK  it         Gite in bicicletta in città
+  --> accuracy on corpus: 30/30 = 100%
+

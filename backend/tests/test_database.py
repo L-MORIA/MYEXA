@@ -7,7 +7,7 @@ class TestDatabaseInit:
     def test_creates_tables(self, tmp_db_path, monkeypatch):
         from config import Config
         monkeypatch.setattr(Config, "DATABASE_PATH", tmp_db_path)
-        db = Database()
+        Database()
         # If no exception, tables were created successfully
         import sqlite3
         conn = sqlite3.connect(tmp_db_path)
@@ -96,6 +96,94 @@ class TestSaveResult:
         db.save_result("q", "https://u.com", "T2", "c2", 0.8, "en", "exa")
         results = db.get_results("q")
         assert len(results) == 1
+
+    def test_same_url_saved_for_two_queries(self, tmp_db_path, monkeypatch):
+        """A page found for two different queries must be kept for both.
+
+        With the old global UNIQUE(url) the second insert was swallowed, so the
+        history of the second query lost the hit entirely.
+        """
+        from config import Config
+        monkeypatch.setattr(Config, "DATABASE_PATH", tmp_db_path)
+        db = Database()
+
+        db.save_result("first query", "https://u.com", "T", "c", 0.9, "en", "exa")
+        db.save_result("second query", "https://u.com", "T", "c", 0.8, "ru", "exa")
+
+        assert len(db.get_results("first query")) == 1
+        assert len(db.get_results("second query")) == 1
+
+    def test_duplicate_url_updates_existing_row(self, tmp_db_path, monkeypatch):
+        from config import Config
+        monkeypatch.setattr(Config, "DATABASE_PATH", tmp_db_path)
+        db = Database()
+
+        db.save_result("q", "https://u.com", "Old", "c", 0.1, "en", "exa")
+        db.save_result("q", "https://u.com", "New", "c2", 0.9, "ru", "exa")
+
+        results = db.get_results("q")
+        assert len(results) == 1
+        assert results[0]["title"] == "New"
+        assert results[0]["language"] == "ru"
+
+
+class TestMigration:
+    def test_old_schema_is_migrated(self, tmp_db_path, monkeypatch):
+        """A database created with the old global UNIQUE(url) must be rebuilt."""
+        import sqlite3
+
+        from config import Config
+        monkeypatch.setattr(Config, "DATABASE_PATH", tmp_db_path)
+
+        # Recreate the pre-migration schema.
+        conn = sqlite3.connect(tmp_db_path)
+        conn.executescript('''
+            CREATE TABLE search_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                query TEXT NOT NULL,
+                url TEXT UNIQUE NOT NULL,
+                title TEXT,
+                content TEXT,
+                relevance_score REAL,
+                language TEXT,
+                source TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
+        conn.execute(
+            "INSERT INTO search_results (query, url, title) VALUES (?, ?, ?)",
+            ("old query", "https://old.com", "Old"),
+        )
+        conn.commit()
+        conn.close()
+
+        db = Database()  # triggers the migration
+
+        rows = db.get_results("old query")
+        assert len(rows) == 1
+        assert rows[0]["url"] == "https://old.com"
+
+        # After the migration the same URL can be stored for another query.
+        db.save_result("new query", "https://old.com", "Again", "c", 0.5, "ru", "exa")
+        assert len(db.get_results("new query")) == 1
+
+    def test_migration_is_idempotent(self, tmp_db_path, monkeypatch):
+        import sqlite3
+
+        from config import Config
+        monkeypatch.setattr(Config, "DATABASE_PATH", tmp_db_path)
+
+        Database()
+        Database()  # must not fail on the already-migrated schema
+
+        conn = sqlite3.connect(tmp_db_path)
+        names = {
+            row[0]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        conn.close()
+        assert "search_results" in names
+        assert "search_results_migrated" not in names
 
 
 class TestSearchHistory:

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import sys
@@ -10,27 +11,29 @@ os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "0")
 
 import torch
+
 torch.set_num_threads(1)
 try:
     torch.set_num_interop_threads(1)
 except RuntimeError:
     pass
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from config import Config
-from models.schemas import SearchQuery
 from api.database import Database
 from api.translator import Translator
-from services.exa_service import ExaService
+from config import Config
+from models.schemas import SearchQuery
 from services.embedding import EmbeddingService
+from services.exa_service import ExaError, ExaService
 from services.indexing import IndexingService
+from services.language_detector import LanguageDetector
 from services.ocr_service import OCRService
 from services.site_db import SiteDBService
 
@@ -59,6 +62,7 @@ translator = Translator()
 exa_service = ExaService()
 embedding_service = EmbeddingService()
 indexing_service = IndexingService()
+language_detector = LanguageDetector()
 ocr_service = OCRService()
 site_db_service = SiteDBService()
 
@@ -92,29 +96,111 @@ async def search(query_data: SearchQuery):
         languages = query_data.languages or [Config.SOURCE_LANGUAGE]
         num_results = query_data.num_results
 
+        # Reject unknown language codes explicitly. Silently accepting them
+        # produced a "Russian" search labelled as another language, with no
+        # translation and no localisation.
+        unsupported = [lang for lang in languages if not Config.is_supported(lang)]
+        if unsupported:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Unsupported language(s): {', '.join(sorted(set(unsupported)))}. "
+                    f"Supported: {', '.join(Config.SUPPORTED_LANGUAGES)}"
+                ),
+            )
+
         # Translate query to all requested languages. ``translations`` holds the
         # translated query per language (and the original under "original").
         translations = translator.translate_to_multiple(query, languages)
 
-        # Search Exa in each language using the *translated* query, biased toward
-        # that language's national domains (Exa has no native lang param).
-        all_results = {}
-        for lang in languages:
+        # Search Exa in each language using the *translated* query. Exa has no
+        # native lang param, so the query is localised with `userLocation`
+        # (country code). A hard `includeDomains` filter is NOT used by
+        # default: it restricts results to those domains only, which confined
+        # the Russian corpus to five sites while English searched the whole web.
+        #
+        # The languages are searched concurrently — they are independent, and
+        # the sequential version took up to 60s for four languages.
+        async def _search_language(lang: str):
             search_query = translations.get(lang) or translations.get("original") or query
-            include_domains = Config.language_domains(lang)
-            results = exa_service.search(
-                search_query, num_results, lang, include_domains=include_domains
+            country = Config.language_country(lang)
+            results = await asyncio.to_thread(
+                exa_service.search, search_query, num_results, lang, country=country
             )
-            all_results[lang] = results
+            return lang, results
+
+        settled = await asyncio.gather(
+            *[_search_language(lang) for lang in languages],
+            return_exceptions=True,
+        )
+
+        all_results = {}
+        provider_errors = {}
+        for lang, outcome in zip(languages, settled, strict=True):
+            if isinstance(outcome, BaseException):
+                logger.error("Exa search failed for %s: %s", lang, outcome)
+                provider_errors[lang] = str(outcome)
+                all_results[lang] = []
+            else:
+                _, results = outcome
+                all_results[lang] = results
+
+        # Every language failed -> the service is down, not "no results".
+        if provider_errors and len(provider_errors) == len(languages):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Search backend unavailable: "
+                    + "; ".join(f"{lang}: {msg}" for lang, msg in provider_errors.items())
+                ),
+            )
+
+        # Detect the language of every result. This used to be a hardcoded
+        # `language_score = 1.0` ("assume language already matched"), which was
+        # only true while a domain filter pinned each language to a few sites.
+        for lang, results in all_results.items():
+            language_detector.annotate(results, lang)
 
         # Filter by embedding similarity using the *translated* query for each
         # language. Previously the original (Russian) query was compared against
         # German/Italian/English snippets via an English-only model, so the 0.5
         # threshold silently dropped every non-English result.
+        #
+        # The score blends the result title with a short snippet — not the full
+        # highlights blob, which Exa builds by quoting the query back.
+        meta = {}
         if query_data.filter_by_relevance:
             for lang, results in all_results.items():
                 translated_query = translations.get(lang) or query
-                all_results[lang] = embedding_service.filter_results(translated_query, results)
+                threshold = (
+                    query_data.relevance_threshold
+                    if query_data.relevance_threshold is not None
+                    else Config.language_threshold(lang)
+                )
+                filtered = embedding_service.filter_results(
+                    translated_query, results, threshold=threshold
+                )
+                all_results[lang] = filtered
+                meta[lang] = {
+                    "fetched": len(results),
+                    "returned": len(filtered),
+                    "filtered_out": bool(results) and not filtered,
+                    "threshold": threshold,
+                }
+
+        # Drop results written in another language. When fewer than half of
+        # the results match, all of them are kept and the mismatch is flagged.
+        for lang, results in all_results.items():
+            before = len(results)
+            all_results[lang] = language_detector.filter_by_language(results)
+            if lang in meta:
+                meta[lang]["language_filtered"] = before - len(all_results[lang])
+                meta[lang]["language_mismatched"] = sum(
+                    1 for r in all_results[lang] if r.get("language_mismatch")
+                )
+
+        for lang, message in provider_errors.items():
+            meta.setdefault(lang, {})["error"] = message
 
         # Get custom sites for boosting
         custom_site_urls = site_db_service.get_site_urls()
@@ -149,11 +235,16 @@ async def search(query_data: SearchQuery):
             "query": query,
             "translations": translations,
             "results": ranked_results,
+            "meta": meta,
             "total_results": sum(len(r) for r in ranked_results.values())
         }
 
+    except HTTPException:
+        # Validation errors (400) and provider outages (503) must keep their
+        # own status code instead of being flattened into a generic 500.
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @app.post("/api/ocr")
 async def ocr_process(file: UploadFile = File(...), language: str = "eng"):
@@ -178,7 +269,7 @@ async def ocr_process(file: UploadFile = File(...), language: str = "eng"):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     finally:
         if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
@@ -192,7 +283,7 @@ async def add_custom_site(site: AddSiteRequest):
             "message": "Site added" if success else "Failed to add site"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @app.get("/api/custom-sites")
 async def get_custom_sites():
@@ -205,7 +296,7 @@ async def get_custom_sites():
             "count": len(sites)
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @app.delete("/api/custom-sites/{site_id:int}")
 async def delete_custom_site(site_id: int):
@@ -216,17 +307,79 @@ async def delete_custom_site(site_id: int):
             "message": "Site deleted" if success else "Failed to delete site"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+@app.get("/api/languages")
+async def get_languages():
+    """Supported languages — the single source of truth for the frontend."""
+    return {
+        "success": True,
+        "languages": [
+            {
+                "code": code,
+                "label": entry["label"],
+                "country": entry.get("country"),
+                "default": code in Config.DEFAULT_LANGUAGES,
+            }
+            for code, entry in Config.LANGUAGES.items()
+        ],
+        "default": list(Config.DEFAULT_LANGUAGES),
+    }
+
 
 @app.get("/api/health")
-async def health():
-    """Health check"""
-    return {
+async def health(deep: bool = False):
+    """Health check.
+
+    With ``?deep=true`` the external dependencies are actually probed, so a
+    broken API key or a blocked network shows up as ``degraded`` instead of a
+    cheerful "healthy".
+    """
+    status = {
         "status": "healthy",
         "version": "1.0.0",
-        "port": Config.PORT
+        "port": Config.PORT,
+        "embedding_model": Config.EMBEDDING_MODEL,
+        "embedding_available": embedding_service._available,
+        "language_detector_available": language_detector.available,
     }
+
+    if not deep:
+        return status
+
+    checks = {}
+    try:
+        results = exa_service.search("health check", 1, "en", country="US")
+        checks["exa"] = {"ok": True, "results": len(results)}
+    except ExaError as e:
+        checks["exa"] = {"ok": False, "error": str(e)}
+    except Exception as e:
+        checks["exa"] = {"ok": False, "error": str(e)}
+
+    checks["exa_api_key_present"] = bool(Config.EXA_API_KEY)
+
+    status["checks"] = checks
+    if not checks["exa"]["ok"]:
+        status["status"] = "degraded"
+    return status
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host=Config.HOST, port=Config.PORT)
+
+    # Write the PID so the launcher can stop exactly this server instead of
+    # killing every python.exe on the machine.
+    pid_file = os.path.join(os.path.dirname(Config.DATABASE_PATH), "myexa.pid")
+    try:
+        os.makedirs(os.path.dirname(pid_file), exist_ok=True)
+        with open(pid_file, "w", encoding="utf-8") as fh:
+            fh.write(str(os.getpid()))
+    except OSError as e:
+        logger.warning("Could not write PID file %s: %s", pid_file, e)
+
+    try:
+        uvicorn.run(app, host=Config.HOST, port=Config.PORT)
+    finally:
+        try:
+            os.remove(pid_file)
+        except OSError:
+            pass

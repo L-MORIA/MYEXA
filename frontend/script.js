@@ -4,45 +4,104 @@ createApp({
     data() {
         return {
             searchQuery: '',
-            selectedLanguages: ['ru'],
+            // Languages come from GET /api/languages — the backend is the single
+            // source of truth, so adding a language no longer requires editing
+            // the frontend as well.
+            languages: [],
+            selectedLanguages: [],
             numResults: 10,
             filterByRelevance: true,
             searchCustomDB: true,
             searchResults: null,
+            searchMeta: {},
             loading: false,
-            activeTab: 'Русский',
+            activeLang: null,
+            notice: null,
             customSites: [],
             uploadedFile: null,
+            ocrLanguage: 'rus',
             newSite: {
                 url: '',
                 title: '',
                 category: '',
                 tags: ''
-            },
-            tabs: ['Русский', 'English', 'Deutsch', 'Italiano', 'Custom DB'],
-            tabKeyMap: { ru: 'Русский', en: 'English', de: 'Deutsch', it: 'Italiano', custom_db: 'Custom DB' }
+            }
         };
     },
-    
+
     mounted() {
+        this.loadLanguages();
         this.loadCustomSites();
     },
-    
+
     computed: {
+        tabs() {
+            const langs = this.languages.map(l => ({ code: l.code, label: l.label }));
+            return [...langs, { code: 'custom_db', label: 'Custom DB' }];
+        },
+        activeTabLabel() {
+            const tab = this.tabs.find(t => t.code === this.activeLang);
+            return tab ? tab.label : this.activeLang || '';
+        },
         activeTabResults() {
-            const map = { 'Русский': 'ru', English: 'en', Deutsch: 'de', Italiano: 'it', 'Custom DB': 'custom_db' };
-            const key = map[this.activeTab] || this.activeTab.toLowerCase();
-            return this.searchResults?.[key] || [];
+            return this.searchResults?.[this.activeLang] || [];
         }
     },
+
     methods: {
+        notify(message, type = 'error') {
+            // Inline banner instead of alert(): a modal freezes the whole page
+            // and blocks any further interaction.
+            this.notice = { message, type };
+        },
+        clearNotice() {
+            this.notice = null;
+        },
+
+        async loadLanguages() {
+            try {
+                const response = await fetch('/api/languages');
+                const data = await response.json();
+                if (data.success) {
+                    this.languages = data.languages;
+                    this.selectedLanguages = [...(data.default || [])];
+                    this.activeLang = this.selectedLanguages[0] || (data.languages[0]?.code ?? null);
+                }
+            } catch (error) {
+                console.error('Load languages error:', error);
+            }
+        },
+
+        resultCount(code) {
+            const list = this.searchResults?.[code];
+            return Array.isArray(list) && list.length ? list.length : 0;
+        },
+
+        metaWarning(code) {
+            const meta = this.searchMeta?.[code];
+            if (!meta) return '';
+            if (meta.error) return `Search backend error for this language: ${meta.error}`;
+            if (meta.filtered_out) {
+                return `All ${meta.fetched} results scored below the relevance threshold (${meta.threshold}).`;
+            }
+            if (meta.language_mismatched) {
+                return `${meta.language_mismatched} result(s) are in another language.`;
+            }
+            return '';
+        },
+
         async performSearch() {
             if (!this.searchQuery.trim()) {
-                alert('Please enter a search query');
+                this.notify('Please enter a search query');
                 return;
             }
-            
+            if (!this.selectedLanguages.length) {
+                this.notify('Please select at least one language');
+                return;
+            }
+
             this.loading = true;
+            this.clearNotice();
             try {
                 const response = await fetch('/api/search', {
                     method: 'POST',
@@ -57,64 +116,72 @@ createApp({
                         search_custom_db: this.searchCustomDB
                     })
                 });
-                
-                const data = await response.json();
+
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    this.notify('Search failed: ' + (data.detail || `HTTP ${response.status}`));
+                    return;
+                }
                 if (data.success) {
                     this.searchResults = data.results;
-                    this.activeTab = 'Русский';
+                    this.searchMeta = data.meta || {};
+                    // Activate the first language the user actually selected.
+                    this.activeLang = this.selectedLanguages[0]
+                        || Object.keys(data.results)[0]
+                        || null;
                 } else {
-                    alert('Search failed');
+                    this.notify('Search failed');
                 }
             } catch (error) {
                 console.error('Search error:', error);
-                alert('Error performing search: ' + error.message);
+                this.notify('Error performing search: ' + error.message);
             } finally {
                 this.loading = false;
             }
         },
-        
+
         handleFileUpload(event) {
             this.uploadedFile = event.target.files[0];
         },
-        
+
         async performOCR() {
             if (!this.uploadedFile) {
-                alert('Please select a file');
+                this.notify('Please select a file');
                 return;
             }
-            
+
             this.loading = true;
             const formData = new FormData();
             formData.append('file', this.uploadedFile);
-            formData.append('language', 'eng');
-            
+            formData.append('language', this.ocrLanguage);
+
             try {
                 const response = await fetch('/api/ocr', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const data = await response.json();
                 if (data.success) {
                     this.searchQuery = data.text.substring(0, 500);
-                    alert('OCR completed! Text extracted and added to search box.');
+                    this.notify('OCR completed! Text extracted and added to search box.', 'success');
                 } else {
-                    alert('OCR failed: ' + data.error);
+                    this.notify('OCR failed: ' + (data.error || 'unknown error'));
                 }
             } catch (error) {
                 console.error('OCR error:', error);
-                alert('Error processing file: ' + error.message);
+                this.notify('Error processing file: ' + error.message);
             } finally {
                 this.loading = false;
             }
         },
-        
+
         async addCustomSite() {
             if (!this.newSite.url || !this.newSite.title) {
-                alert('Please fill in URL and Title');
+                this.notify('Please fill in URL and Title');
                 return;
             }
-            
+
             try {
                 const response = await fetch('/api/custom-sites/add', {
                     method: 'POST',
@@ -123,21 +190,21 @@ createApp({
                     },
                     body: JSON.stringify(this.newSite)
                 });
-                
+
                 const data = await response.json();
                 if (data.success) {
                     this.newSite = { url: '', title: '', category: '', tags: '' };
                     this.loadCustomSites();
-                    alert('Site added successfully');
+                    this.notify('Site added successfully', 'success');
                 } else {
-                    alert('Failed to add site');
+                    this.notify('Failed to add site');
                 }
             } catch (error) {
                 console.error('Add site error:', error);
-                alert('Error adding site: ' + error.message);
+                this.notify('Error adding site: ' + error.message);
             }
         },
-        
+
         async loadCustomSites() {
             try {
                 const response = await fetch('/api/custom-sites');
@@ -149,7 +216,7 @@ createApp({
                 console.error('Load sites error:', error);
             }
         },
-        
+
         async removeCustomSite(site) {
             if (!confirm('Are you sure you want to delete this site?')) {
                 return;
@@ -163,16 +230,16 @@ createApp({
                 const data = await response.json();
                 if (data.success) {
                     this.loadCustomSites();
-                    alert('Site deleted');
+                    this.notify('Site deleted', 'success');
                 } else {
-                    alert('Failed to delete site');
+                    this.notify('Failed to delete site');
                 }
             } catch (error) {
                 console.error('Delete site error:', error);
-                alert('Error deleting site: ' + error.message);
+                this.notify('Error deleting site: ' + error.message);
             }
         },
-        
+
         async addToCustomDB(result) {
             try {
                 const response = await fetch('/api/custom-sites/add', {
@@ -187,18 +254,18 @@ createApp({
                         tags: 'from_search'
                     })
                 });
-                
+
                 const data = await response.json();
                 if (data.success) {
                     this.loadCustomSites();
-                    alert('Added to custom database');
+                    this.notify('Added to custom database', 'success');
                 }
             } catch (error) {
                 console.error('Add to DB error:', error);
-                alert('Error adding to database: ' + error.message);
+                this.notify('Error adding to database: ' + error.message);
             }
         },
-        
+
         async removeFromCustomDB(site) {
             if (!confirm('Remove from custom database?')) {
                 return;

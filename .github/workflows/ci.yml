@@ -35,6 +35,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-hf-${{ hashFiles('backend/config.py') }}
+          restore-keys: |
+            ${{ runner.os }}-hf-
+
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
@@ -44,6 +52,7 @@ jobs:
 
       - name: Check syntax
         run: |
+          python -m py_compile backend/app.py
           python -m py_compile backend/config.py
           python -m py_compile backend/models/schemas.py
           python -m py_compile backend/api/database.py
@@ -51,12 +60,20 @@ jobs:
           python -m py_compile backend/services/exa_service.py
           python -m py_compile backend/services/embedding.py
           python -m py_compile backend/services/indexing.py
+          python -m py_compile backend/services/language_detector.py
           python -m py_compile backend/services/ocr_service.py
           python -m py_compile backend/services/site_db.py
+
+      - name: Lint (ruff)
+        run: ruff check backend frontend
 
       - name: Run tests
         working-directory: ./backend
         run: pytest -v --tb=short -q
+
+      - name: Coverage report
+        working-directory: ./backend
+        run: pytest -q --cov=backend --cov-report=term-missing
 
       - name: Verify frontend files
         run: |

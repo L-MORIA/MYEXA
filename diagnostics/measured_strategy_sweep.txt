@@ -1,0 +1,59 @@
+Loading model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+====================================================================================================
+STRATEGY / THRESHOLD MATRIX — recall (R) and precision (P) per language
+====================================================================================================
+PASS title                    thr=0.10 | ru: R1.00 P0.86 S+0.420 | en: R1.00 P0.83 S+0.412 | de: R1.00 P0.80 S+0.399 | it: R1.00 P1.00 S+0.439
+PASS title                    thr=0.15 | ru: R1.00 P0.86 S+0.420 | en: R1.00 P1.00 S+0.412 | de: R1.00 P1.00 S+0.399 | it: R1.00 P1.00 S+0.439
+     title                    thr=0.20 | ru: R1.00 P0.86 S+0.420 | en: R0.80 P1.00 S+0.412 | de: R1.00 P1.00 S+0.399 | it: R1.00 P1.00 S+0.439
+     title                    thr=0.25 | ru: R1.00 P1.00 S+0.420 | en: R0.80 P1.00 S+0.412 | de: R1.00 P1.00 S+0.399 | it: R1.00 P1.00 S+0.439
+     title                    thr=0.30 | ru: R1.00 P1.00 S+0.420 | en: R0.80 P1.00 S+0.412 | de: R1.00 P1.00 S+0.399 | it: R1.00 P1.00 S+0.439
+     title+snippet600         thr=0.10 | ru: R1.00 P0.60 S+0.100 | en: R1.00 P0.62 S+0.208 | de: R1.00 P0.67 S+0.102 | it: R1.00 P0.67 S+0.020
+     title+snippet600         thr=0.15 | ru: R1.00 P0.60 S+0.100 | en: R1.00 P0.62 S+0.208 | de: R1.00 P0.67 S+0.102 | it: R1.00 P0.67 S+0.020
+     title+snippet600         thr=0.20 | ru: R1.00 P0.60 S+0.100 | en: R1.00 P0.62 S+0.208 | de: R1.00 P0.67 S+0.102 | it: R1.00 P0.67 S+0.020
+     title+snippet600         thr=0.25 | ru: R1.00 P0.60 S+0.100 | en: R1.00 P0.71 S+0.208 | de: R1.00 P0.67 S+0.102 | it: R1.00 P0.67 S+0.020
+     title+snippet600         thr=0.30 | ru: R1.00 P0.60 S+0.100 | en: R1.00 P0.83 S+0.208 | de: R1.00 P0.67 S+0.102 | it: R1.00 P0.67 S+0.020
+     title+fullblob (CURRENT) thr=0.10 | ru: R1.00 P0.60 S+0.032 | en: R1.00 P0.62 S+0.096 | de: R1.00 P0.67 S-0.021 | it: R1.00 P0.67 S-0.134
+     title+fullblob (CURRENT) thr=0.15 | ru: R1.00 P0.60 S+0.032 | en: R1.00 P0.62 S+0.096 | de: R1.00 P0.67 S-0.021 | it: R1.00 P0.67 S-0.134
+     title+fullblob (CURRENT) thr=0.20 | ru: R1.00 P0.60 S+0.032 | en: R1.00 P0.62 S+0.096 | de: R1.00 P0.67 S-0.021 | it: R1.00 P0.67 S-0.134
+     title+fullblob (CURRENT) thr=0.25 | ru: R1.00 P0.60 S+0.032 | en: R1.00 P0.62 S+0.096 | de: R1.00 P0.67 S-0.021 | it: R1.00 P0.67 S-0.134
+     title+fullblob (CURRENT) thr=0.30 | ru: R1.00 P0.60 S+0.032 | en: R1.00 P0.62 S+0.096 | de: R1.00 P0.67 S-0.021 | it: R1.00 P0.67 S-0.134
+     title+meanchunk          thr=0.10 | ru: R1.00 P0.60 S+0.222 | en: R1.00 P0.62 S+0.274 | de: R1.00 P0.67 S+0.234 | it: R1.00 P0.67 S+0.214
+     title+meanchunk          thr=0.15 | ru: R1.00 P0.60 S+0.222 | en: R1.00 P0.71 S+0.274 | de: R1.00 P0.67 S+0.234 | it: R1.00 P0.67 S+0.214
+     title+meanchunk          thr=0.20 | ru: R1.00 P0.60 S+0.222 | en: R1.00 P0.83 S+0.274 | de: R1.00 P0.67 S+0.234 | it: R1.00 P0.67 S+0.214
+     title+meanchunk          thr=0.25 | ru: R1.00 P0.67 S+0.222 | en: R1.00 P0.83 S+0.274 | de: R1.00 P0.80 S+0.234 | it: R1.00 P0.67 S+0.214
+     title+meanchunk          thr=0.30 | ru: R1.00 P0.75 S+0.222 | en: R1.00 P0.83 S+0.274 | de: R1.00 P0.80 S+0.234 | it: R1.00 P0.80 S+0.214
+PASS blend 0.7/0.3            thr=0.10 | ru: R1.00 P0.60 S+0.308 | en: R1.00 P0.71 S+0.334 | de: R1.00 P0.67 S+0.309 | it: R1.00 P0.67 S+0.312
+PASS blend 0.7/0.3            thr=0.15 | ru: R1.00 P0.67 S+0.308 | en: R1.00 P0.83 S+0.334 | de: R1.00 P0.80 S+0.309 | it: R1.00 P0.67 S+0.312
+PASS blend 0.7/0.3            thr=0.20 | ru: R1.00 P0.86 S+0.308 | en: R1.00 P0.83 S+0.334 | de: R1.00 P0.80 S+0.309 | it: R1.00 P0.80 S+0.312
+PASS blend 0.7/0.3            thr=0.25 | ru: R1.00 P0.86 S+0.308 | en: R1.00 P0.83 S+0.334 | de: R1.00 P0.80 S+0.309 | it: R1.00 P1.00 S+0.312
+PASS blend 0.7/0.3            thr=0.30 | ru: R1.00 P0.86 S+0.308 | en: R1.00 P1.00 S+0.334 | de: R1.00 P1.00 S+0.309 | it: R1.00 P1.00 S+0.312
+PASS blend 0.6/0.4            thr=0.10 | ru: R1.00 P0.60 S+0.271 | en: R1.00 P0.62 S+0.308 | de: R1.00 P0.67 S+0.279 | it: R1.00 P0.67 S+0.270
+PASS blend 0.6/0.4            thr=0.15 | ru: R1.00 P0.60 S+0.271 | en: R1.00 P0.83 S+0.308 | de: R1.00 P0.67 S+0.279 | it: R1.00 P0.67 S+0.270
+PASS blend 0.6/0.4            thr=0.20 | ru: R1.00 P0.67 S+0.271 | en: R1.00 P0.83 S+0.308 | de: R1.00 P0.80 S+0.279 | it: R1.00 P0.67 S+0.270
+PASS blend 0.6/0.4            thr=0.25 | ru: R1.00 P0.75 S+0.271 | en: R1.00 P0.83 S+0.308 | de: R1.00 P0.80 S+0.279 | it: R1.00 P0.80 S+0.270
+PASS blend 0.6/0.4            thr=0.30 | ru: R1.00 P0.86 S+0.271 | en: R1.00 P1.00 S+0.308 | de: R1.00 P1.00 S+0.279 | it: R1.00 P1.00 S+0.270
+     blend 0.5/0.5            thr=0.10 | ru: R1.00 P0.60 S+0.234 | en: R1.00 P0.62 S+0.282 | de: R1.00 P0.67 S+0.249 | it: R1.00 P0.67 S+0.228
+     blend 0.5/0.5            thr=0.15 | ru: R1.00 P0.60 S+0.234 | en: R1.00 P0.71 S+0.282 | de: R1.00 P0.67 S+0.249 | it: R1.00 P0.67 S+0.228
+     blend 0.5/0.5            thr=0.20 | ru: R1.00 P0.60 S+0.234 | en: R1.00 P0.83 S+0.282 | de: R1.00 P0.67 S+0.249 | it: R1.00 P0.67 S+0.228
+     blend 0.5/0.5            thr=0.25 | ru: R1.00 P0.67 S+0.234 | en: R1.00 P0.83 S+0.282 | de: R1.00 P0.80 S+0.249 | it: R1.00 P0.67 S+0.228
+     blend 0.5/0.5            thr=0.30 | ru: R1.00 P0.75 S+0.234 | en: R1.00 P0.83 S+0.282 | de: R1.00 P0.80 S+0.249 | it: R1.00 P0.80 S+0.228
+     title+maxchunk           thr=0.10 | ru: R1.00 P0.60 S+0.089 | en: R1.00 P0.62 S+0.220 | de: R1.00 P0.67 S+0.133 | it: R1.00 P0.67 S+0.060
+     title+maxchunk           thr=0.15 | ru: R1.00 P0.60 S+0.089 | en: R1.00 P0.62 S+0.220 | de: R1.00 P0.67 S+0.133 | it: R1.00 P0.67 S+0.060
+     title+maxchunk           thr=0.20 | ru: R1.00 P0.60 S+0.089 | en: R1.00 P0.62 S+0.220 | de: R1.00 P0.67 S+0.133 | it: R1.00 P0.67 S+0.060
+     title+maxchunk           thr=0.25 | ru: R1.00 P0.60 S+0.089 | en: R1.00 P0.62 S+0.220 | de: R1.00 P0.67 S+0.133 | it: R1.00 P0.67 S+0.060
+     title+maxchunk           thr=0.30 | ru: R1.00 P0.60 S+0.089 | en: R1.00 P0.71 S+0.220 | de: R1.00 P0.67 S+0.133 | it: R1.00 P0.67 S+0.060
+====================================================================================================
+STRATEGIES MEETING ALL CRITERIA (separation>=0.25, recall>=0.95 in every language)
+====================================================================================================
+  title                    thr=0.15  worst separation = +0.399
+  title                    thr=0.10  worst separation = +0.399
+  blend 0.7/0.3            thr=0.30  worst separation = +0.308
+  blend 0.7/0.3            thr=0.25  worst separation = +0.308
+  blend 0.7/0.3            thr=0.20  worst separation = +0.308
+  blend 0.7/0.3            thr=0.15  worst separation = +0.308
+  blend 0.7/0.3            thr=0.10  worst separation = +0.308
+  blend 0.6/0.4            thr=0.30  worst separation = +0.270
+  blend 0.6/0.4            thr=0.25  worst separation = +0.270
+  blend 0.6/0.4            thr=0.20  worst separation = +0.270
+  blend 0.6/0.4            thr=0.15  worst separation = +0.270
+  blend 0.6/0.4            thr=0.10  worst separation = +0.270

@@ -1,0 +1,31 @@
+FilteringRules: {'relevance_score': 40, 'domain_authority': 20, 'content_freshness': 15, 'language_match': 15, 'custom_boost': 10}
+
+case                                domain_auth  relevance_index
+------------------------------------------------------------------
+EN result on github.com                     1.0           0.6650
+EN result on wikipedia.org                  1.0           0.6650
+EN result on medium.com                     1.0           0.6650
+EN result on random https site              0.7           0.6050
+RU result on lenta.ru                       0.7           0.6050
+RU result on ria.ru                         0.7           0.6050
+RU result on habr.com                       0.7           0.6050
+RU result on kommersant.ru                  0.7           0.6050
+RU result on rbc.ru                         0.7           0.6050
+DE result on spiegel.de                     0.7           0.6050
+IT result on repubblica.it                  0.7           0.6050
+
+NOTE: docstring claims 'relevance index (0-100)' and calculate_index
+      ends with min(index, 100.0) — but max reachable value is
+      1.00, not 100.
+
+--- freshness is dead weight: Exa results carry no 'created_at' ---
+  no created_at  -> freshness=0.5, index=0.6050
+  with created_at-> freshness=1.0, index=0.6800
+
+--- 'language_match' is hardcoded to 1.0 (no detection at all) ---
+  ru-domain index=0.6050  en-domain index=0.6650  (gap is purely domain authority, not language)
+
+--- Exa's own relevance signal ('score') is parsed but never ranked ---
+  result has score=0.99, embedding_score=0.6 -> index=0.6050
+  result has score=0.01, embedding_score=0.6 -> index=0.6050
+  identical -> Exa's native relevance score is ignored by the ranking.

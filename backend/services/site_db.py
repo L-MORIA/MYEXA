@@ -1,5 +1,6 @@
-from typing import List, Dict
+
 from api.database import Database
+
 
 class SiteDBService:
     def __init__(self):
@@ -13,7 +14,7 @@ class SiteDBService:
             print(f"Error adding site: {e}")
             return False
 
-    def get_all_sites(self) -> List[Dict]:
+    def get_all_sites(self) -> list[dict]:
         try:
             sites = self.db.get_custom_sites()
             return [
@@ -31,7 +32,7 @@ class SiteDBService:
             print(f"Error getting sites: {e}")
             return []
 
-    def search_in_custom_db(self, query: str) -> List[Dict]:
+    def search_in_custom_db(self, query: str) -> list[dict]:
         sites = self.get_all_sites()
         results = []
 
@@ -47,7 +48,7 @@ class SiteDBService:
     def add_from_search_result(self, url: str, title: str, category: str = "search_result") -> bool:
         return self.add_site(url, title, category)
 
-    def get_site_urls(self) -> List[str]:
+    def get_site_urls(self) -> list[str]:
         sites = self.get_all_sites()
         return [site["url"] for site in sites]
 

@@ -1,0 +1,291 @@
+Loading model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+Config.RELEVANCE_THRESHOLD = 0.3
+
+
+==============================================================================
+LANGUAGE ru   query='искусственный интеллект в медицине'
+==============================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+  CURRENT: full highlights blob (~4000 chars)
+    kept 10/10 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.60
+    separation(rel_mean - irr_mean) = +0.032
+    relevant scores: min=0.429 max=0.694 mean=0.556
+    irrelevant scores: min=0.439 max=0.673 mean=0.525
+
+
+
+
+
+
+
+
+
+
+  PROPOSED: title + first 600 chars
+    kept 10/10 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.60
+    separation(rel_mean - irr_mean) = +0.100
+    relevant scores: min=0.426 max=0.736 mean=0.570
+    irrelevant scores: min=0.416 max=0.548 mean=0.470
+
+
+
+
+
+
+
+
+
+
+
+
+  PROPOSED: title only
+    kept 6/10 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 1.00
+    separation(rel_mean - irr_mean) = +0.420
+    relevant scores: min=0.342 max=0.736 mean=0.492
+    irrelevant scores: min=0.004 max=0.207 mean=0.072
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  PROPOSED: title + chunk max-pool (500 chars)
+    kept 10/10 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.60
+    separation(rel_mean - irr_mean) = +0.089
+    relevant scores: min=0.440 max=0.736 mean=0.590
+    irrelevant scores: min=0.416 max=0.629 mean=0.500
+
+
+==============================================================================
+LANGUAGE en   query='artificial intelligence in medicine'
+==============================================================================
+
+
+
+
+
+
+
+
+
+  CURRENT: full highlights blob (~4000 chars)
+    kept 8/8 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.62
+    separation(rel_mean - irr_mean) = +0.096
+    relevant scores: min=0.323 max=0.701 mean=0.534
+    irrelevant scores: min=0.356 max=0.538 mean=0.438
+
+
+
+
+
+
+
+
+
+
+  PROPOSED: title + first 600 chars
+    kept 6/8 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.83
+    separation(rel_mean - irr_mean) = +0.208
+    relevant scores: min=0.352 max=0.714 mean=0.517
+    irrelevant scores: min=0.230 max=0.447 mean=0.309
+
+
+
+
+
+
+
+
+  PROPOSED: title only
+    kept 4/8 (threshold 0.3)
+    recall(relevant kept) = 0.80   precision = 1.00
+    separation(rel_mean - irr_mean) = +0.412
+    relevant scores: min=0.186 max=0.770 mean=0.463
+    irrelevant scores: min=-0.026 max=0.145 mean=0.051
+    *** DROPPED RELEVANT: 0.186
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  PROPOSED: title + chunk max-pool (500 chars)
+    kept 7/8 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.71
+    separation(rel_mean - irr_mean) = +0.220
+    relevant scores: min=0.401 max=0.770 mean=0.589
+    irrelevant scores: min=0.278 max=0.529 mean=0.369
+
+
+==============================================================================
+LANGUAGE de   query='Künstliche Intelligenz in der Medizin'
+==============================================================================
+
+
+
+
+
+
+
+  CURRENT: full highlights blob (~4000 chars)
+    kept 6/6 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.67
+    separation(rel_mean - irr_mean) = -0.021
+    relevant scores: min=0.354 max=0.746 mean=0.579
+    irrelevant scores: min=0.535 max=0.666 mean=0.600
+
+
+
+
+
+
+
+  PROPOSED: title + first 600 chars
+    kept 6/6 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.67
+    separation(rel_mean - irr_mean) = +0.102
+    relevant scores: min=0.338 max=0.713 mean=0.554
+    irrelevant scores: min=0.388 max=0.517 mean=0.452
+
+
+
+
+
+
+
+  PROPOSED: title only
+    kept 4/6 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 1.00
+    separation(rel_mean - irr_mean) = +0.399
+    relevant scores: min=0.424 max=0.637 mean=0.480
+    irrelevant scores: min=0.030 max=0.131 mean=0.080
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  PROPOSED: title + chunk max-pool (500 chars)
+    kept 6/6 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.67
+    separation(rel_mean - irr_mean) = +0.133
+    relevant scores: min=0.426 max=0.720 mean=0.589
+    irrelevant scores: min=0.380 max=0.533 mean=0.457
+
+
+==============================================================================
+LANGUAGE it   query='intelligenza artificiale in medicina'
+==============================================================================
+
+
+
+
+
+
+
+
+  CURRENT: full highlights blob (~4000 chars)
+    kept 6/6 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.67
+    separation(rel_mean - irr_mean) = -0.134
+    relevant scores: min=0.332 max=0.721 mean=0.575
+    irrelevant scores: min=0.690 max=0.728 mean=0.709
+
+
+
+
+
+
+  PROPOSED: title + first 600 chars
+    kept 6/6 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.67
+    separation(rel_mean - irr_mean) = +0.020
+    relevant scores: min=0.382 max=0.700 mean=0.577
+    irrelevant scores: min=0.527 max=0.586 mean=0.556
+
+
+
+
+
+
+
+  PROPOSED: title only
+    kept 4/6 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 1.00
+    separation(rel_mean - irr_mean) = +0.439
+    relevant scores: min=0.324 max=0.663 mean=0.477
+    irrelevant scores: min=0.010 max=0.066 mean=0.038
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  PROPOSED: title + chunk max-pool (500 chars)
+    kept 6/6 (threshold 0.3)
+    recall(relevant kept) = 1.00   precision = 0.67
+    separation(rel_mean - irr_mean) = +0.060
+    relevant scores: min=0.512 max=0.687 mean=0.614
+    irrelevant scores: min=0.521 max=0.587 mean=0.554
+

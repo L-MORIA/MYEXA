@@ -1,0 +1,36 @@
+[project]
+name = "myexa"
+version = "1.0.0"
+description = "MYEXA - Advanced Multi-Language Search Engine"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+    ".git",
+    ".zcode",
+    "diagnostics",
+    "__pycache__",
+    ".pytest_cache",
+]
+
+[tool.ruff.lint]
+# The default rule set plus the checks that catch real defects.
+select = ["E", "F", "W", "I", "B", "UP", "C4"]
+ignore = [
+    "E501",    # line length is handled by the formatter
+    "B008",    # FastAPI Depends() in defaults is idiomatic
+]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/*" = ["B011", "E402"]
+# app.py must extend sys.path before importing the backend packages.
+"backend/app.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+python_files = ["test_*.py"]
+filterwarnings = [
+    "ignore::DeprecationWarning:PyPDF2.*",
+]

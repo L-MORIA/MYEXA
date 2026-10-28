@@ -1,8 +1,9 @@
 """Tests for backend.api.translator.Translator."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from api.translator import Translator, LANG_MAP
+import requests
+from api.translator import LANG_MAP, Translator
 
 
 class TestLangMap:
@@ -117,6 +118,144 @@ class TestTranslate:
             t.translate("привет мир", "en")
             # Only one actual network call
             assert mock_get.call_count == 1
+
+    def test_yandex_network_error_falls_back_to_google(self):
+        """When Yandex keeps failing, the Google fallback must be used."""
+        t = Translator()
+
+        google_resp = MagicMock()
+        google_resp.status_code = 200
+        google_resp.json.return_value = [[["hello world", "привет мир", None, None, 3]], None, "en"]
+
+        def fake_get(url, **kw):
+            if "yandex" in url:
+                raise requests.ConnectionError("dns fail")
+            return google_resp
+
+        with patch("api.translator.requests.get", side_effect=fake_get):
+            with patch("api.translator.time.sleep"):
+                assert t.translate("привет мир", "en") == "hello world"
+
+    def test_transient_yandex_error_is_recovered_without_google(self):
+        """A single throttled request is retried and served by the same provider."""
+        t = Translator()
+
+        yandex_resp = MagicMock()
+        yandex_resp.status_code = 200
+        yandex_resp.json.return_value = {"text": ["hello world"]}
+
+        calls = {"n": 0}
+
+        def fake_get(url, **kw):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise requests.ConnectionError("throttled")
+            return yandex_resp
+
+        with patch("api.translator.requests.get", side_effect=fake_get):
+            with patch("api.translator.time.sleep"):
+                assert t.translate("привет мир", "en") == "hello world"
+        assert calls["n"] == 2
+
+    def test_google_network_error_returns_original(self):
+        """Both transports failing -> the original text is returned."""
+        t = Translator()
+
+        with patch("api.translator.requests.get", side_effect=requests.Timeout("timeout")):
+            assert t.translate("привет мир", "en") == "привет мир"
+
+    def test_malformed_json_returns_original(self):
+        """A non-JSON body from a provider must not raise."""
+        t = Translator()
+
+        bad = MagicMock()
+        bad.status_code = 200
+        bad.json.side_effect = ValueError("not json")
+
+        with patch("api.translator.requests.get", side_effect=[bad, bad]):
+            assert t.translate("привет мир", "en") == "привет мир"
+
+    def test_empty_yandex_text_falls_through_to_google(self):
+        """Yandex returning an empty text list is not a valid translation."""
+        t = Translator()
+
+        yandex_resp = MagicMock()
+        yandex_resp.status_code = 200
+        yandex_resp.json.return_value = {"text": []}
+
+        google_resp = MagicMock()
+        google_resp.status_code = 200
+        google_resp.json.return_value = [[["hello", "привет", None, None, 3]], None, "en"]
+
+        with patch("api.translator.requests.get", side_effect=[yandex_resp, google_resp]):
+            assert t.translate("привет мир", "en") == "hello"
+
+    def test_google_response_with_empty_parts(self):
+        t = Translator()
+
+        yandex_resp = MagicMock()
+        yandex_resp.status_code = 500
+
+        google_resp = MagicMock()
+        google_resp.status_code = 200
+        google_resp.json.return_value = [[], None, "en"]
+
+        with patch("api.translator.requests.get", side_effect=[yandex_resp, google_resp]):
+            assert t.translate("привет мир", "en") == "привет мир"
+
+
+class TestRetryPolicy:
+    """Both providers are unofficial endpoints that occasionally throttle."""
+
+    def test_transient_error_is_retried(self):
+        t = Translator()
+
+        ok_resp = MagicMock()
+        ok_resp.status_code = 200
+        ok_resp.json.return_value = {"text": ["hello world"]}
+
+        calls = {"n": 0}
+
+        def flaky(url, **kw):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise requests.ConnectionError("throttled")
+            return ok_resp
+
+        with patch("api.translator.requests.get", side_effect=flaky):
+            with patch("api.translator.time.sleep"):
+                assert t.translate("привет мир", "en") == "hello world"
+        assert calls["n"] == 3
+
+    def test_gives_up_after_max_attempts(self):
+        t = Translator()
+
+        with patch("api.translator.requests.get",
+                   side_effect=requests.ConnectionError("down")) as mock_get:
+            with patch("api.translator.time.sleep"):
+                result = t.translate("привет мир", "en")
+
+        assert result == "привет мир"
+        # Yandex retries, then Google retries.
+        assert mock_get.call_count == 2 * 3
+
+    def test_timeout_is_configured(self):
+        t = Translator()
+        captured = {}
+
+        ok_resp = MagicMock()
+        ok_resp.status_code = 200
+        ok_resp.json.return_value = {"text": ["hello"]}
+
+        def capture(url, **kw):
+            captured["timeout"] = kw.get("timeout")
+            return ok_resp
+
+        with patch("api.translator.requests.get", side_effect=capture):
+            t.translate("привет", "en")
+
+        assert captured["timeout"] is not None
+        assert captured["timeout"] >= 5
 
 
 class TestTranslateToMultiple:

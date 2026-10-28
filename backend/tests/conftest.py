@@ -6,11 +6,9 @@ are mocked so tests run without network access and without downloading models.
 
 import os
 import sys
-import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 # Ensure backend package is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -19,7 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 @pytest.fixture(autouse=False)
 def _patch_embedding_model(monkeypatch):
     """Prevent SentenceTransformer from downloading / loading a real model.
-    
+
     NOT autouse — only applies to tests that explicitly request it
     (embedding tests request it directly via fixture name).
     """

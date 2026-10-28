@@ -42,6 +42,10 @@ token.txt
 *.db-journal
 *.sqlite-backup
 
+# Runtime PID file written by the launcher
+myexa.pid
+*.pid
+
 # Temporary files
 tmp/
 temp/

@@ -461,3 +461,91 @@ body {
         align-items: flex-start;
     }
 }
+
+/* Inline notice banner (replaces blocking alert() dialogs) */
+.notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 20px 0;
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 0.95em;
+    line-height: 1.45;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.notice-error {
+    background: #fdecec;
+    border-left: 4px solid #d64545;
+    color: #7a1f1f;
+}
+
+.notice-success {
+    background: #eaf7ee;
+    border-left: 4px solid #2e8b57;
+    color: #1d5c38;
+}
+
+.notice-close {
+    background: transparent;
+    border: none;
+    font-size: 1.4em;
+    line-height: 1;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.6;
+    padding: 0 4px;
+}
+
+.notice-close:hover {
+    opacity: 1;
+}
+
+/* Language mismatch flag on a result */
+.result-meta .score.warn {
+    color: #b06a00;
+    font-weight: 600;
+}
+
+/* Tab result counter */
+.tab-count {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(102, 126, 234, 0.15);
+    font-size: 0.75em;
+    font-weight: 600;
+}
+
+.tab.active .tab-count {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+/* Per-language warning under the results header */
+.meta-warning {
+    margin: 0 0 16px 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #fff8e1;
+    border-left: 4px solid #e0a800;
+    color: #6b5200;
+    font-size: 0.9em;
+}
+
+.ocr-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.ocr-lang-select {
+    padding: 6px 10px;
+    border: 1px solid #d5d9e0;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.9em;
+}
