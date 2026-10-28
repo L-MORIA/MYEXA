@@ -47,6 +47,20 @@ echo.
 echo ========================================
 echo   Server ready on http://localhost:3005
 echo ========================================
+
+rem Report which provider actually answers. When the Exa API is blocked
+rem (Cloudflare answers 403 for whole IP ranges) the search falls back to the
+rem local SearXNG instance, and that instance only lives as long as Docker
+rem Desktop is running.
+set MYEXA_PROVIDER=
+for /f "usebackq delims=" %%a in (`powershell -NoProfile -Command "try { $h = Invoke-RestMethod 'http://localhost:3005/api/health?deep=true'; $h.active_provider } catch { '' }"`) do set MYEXA_PROVIDER=%%a
+if "%MYEXA_PROVIDER%"=="searxng" (
+    echo NOTE: the Exa API is unavailable, so the search runs on the local
+    echo       SearXNG fallback. Docker Desktop must be running for it to
+    echo       answer - otherwise searches will fail.
+    echo.
+)
+
 start http://localhost:3005
 echo.
 echo Close this window to stop the server.
