@@ -91,7 +91,22 @@ createApp({
                 return `All ${meta.fetched} results scored below the relevance threshold (${meta.threshold}).`;
             }
             if (meta.language_mismatched) {
-                return `${meta.language_mismatched} result(s) are in another language.`;
+                // Name the language the results are actually in: a bare
+                // "another language" reads like a defect when the query is
+                // language-neutral ("llm") and English results are the
+                // correct answer.
+                const label = (c) =>
+                    this.languages.find(l => l.code === c)?.label
+                    || ({ en: 'English', de: 'German', it: 'Italian', ru: 'Russian' }[c])
+                    || (c === '?' ? 'an unknown language' : c);
+                const total = meta.returned ?? meta.fetched ?? 0;
+                const names = Object.entries(meta.language_breakdown || {})
+                    .filter(([c]) => c !== code)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([c]) => label(c));
+                const nameList = names.join(' / ') || 'another language';
+                return `${meta.language_mismatched} of ${total} result(s) `
+                    + `are in ${nameList}, not in ${label(code)}.`;
             }
             return '';
         },

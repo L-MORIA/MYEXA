@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import tempfile
+from collections import Counter
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
@@ -278,6 +279,13 @@ async def search(query_data: SearchQuery):
                 meta[lang]["language_filtered"] = before - len(all_results[lang])
                 meta[lang]["language_mismatched"] = sum(
                     1 for r in all_results[lang] if r.get("language_mismatch")
+                )
+                # WHAT the other language actually is — the bare
+                # "N result(s) are in another language" reads like a defect
+                # when the query itself is language-neutral ("llm", "python")
+                # and English results are the correct answer.
+                meta[lang]["language_breakdown"] = dict(
+                    Counter(r.get("detected_language") or "?" for r in all_results[lang])
                 )
 
         for lang, message in provider_errors.items():
