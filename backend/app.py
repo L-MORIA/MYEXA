@@ -141,6 +141,11 @@ async def search(query_data: SearchQuery):
         translations = await asyncio.to_thread(
             translator.translate_to_multiple, query, languages
         )
+        # Languages whose query could not be translated (every provider
+        # failed). Those tabs were searched with the original wording — the
+        # results are reported as such instead of silently pretending the
+        # language filter worked.
+        failed_translations = translations.pop("_failed_languages", [])
 
         # Search the primary provider in each language using the *translated*
         # query. Exa has no native lang param, so the query is localised with
@@ -230,6 +235,8 @@ async def search(query_data: SearchQuery):
         meta = {}
         for lang in languages:
             meta[lang] = {"provider": provider_used.get(lang, "exa")}
+            if lang in failed_translations:
+                meta[lang]["translation_failed"] = True
             if lang in fallback_reasons:
                 # The primary provider failed and the fallback answered. The
                 # reason is reported, so the user can tell why the source

@@ -80,12 +80,22 @@ createApp({
         metaWarning(code) {
             const meta = this.searchMeta?.[code];
             if (!meta) return '';
+            const label = (c) =>
+                this.languages.find(l => l.code === c)?.label
+                || ({ en: 'English', de: 'German', it: 'Italian', ru: 'Russian' }[c])
+                || (c === '?' ? 'an unknown language' : c);
             if (meta.error) return `Search backend error for this language: ${meta.error}`;
             if (meta.fallback_reason) {
                 // The primary provider failed and the fallback answered. The
                 // user must see it: the results come from a different source.
                 return `Primary provider unavailable (${meta.fallback_reason}) — `
                     + 'these results come from the local fallback (SearXNG).';
+            }
+            if (meta.translation_failed) {
+                // The query was searched untranslated: this — not the
+                // provider — is why the results may be in the wrong language.
+                return `Query could not be translated to ${label(code)} — `
+                    + 'searched as typed, so results may be in the wrong language.';
             }
             if (meta.filtered_out) {
                 return `All ${meta.fetched} results scored below the relevance threshold (${meta.threshold}).`;
@@ -95,10 +105,6 @@ createApp({
                 // "another language" reads like a defect when the query is
                 // language-neutral ("llm") and English results are the
                 // correct answer.
-                const label = (c) =>
-                    this.languages.find(l => l.code === c)?.label
-                    || ({ en: 'English', de: 'German', it: 'Italian', ru: 'Russian' }[c])
-                    || (c === '?' ? 'an unknown language' : c);
                 const total = meta.returned ?? meta.fetched ?? 0;
                 const names = Object.entries(meta.language_breakdown || {})
                     .filter(([c]) => c !== code)
