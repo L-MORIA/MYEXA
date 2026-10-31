@@ -277,22 +277,20 @@ async def search(query_data: SearchQuery):
                     "threshold": threshold,
                 })
 
-        # Drop results written in another language. When fewer than half of
-        # the results match, all of them are kept and the mismatch is flagged.
+        # Drop results written in another language — strictly. What was
+        # dropped is reported (count + which languages), so an empty tab is
+        # explained instead of looking like a provider outage.
         for lang, results in all_results.items():
             before = len(results)
             all_results[lang] = language_detector.filter_by_language(results)
             if lang in meta:
                 meta[lang]["language_filtered"] = before - len(all_results[lang])
-                meta[lang]["language_mismatched"] = sum(
-                    1 for r in all_results[lang] if r.get("language_mismatch")
-                )
-                # WHAT the other language actually is — the bare
-                # "N result(s) are in another language" reads like a defect
-                # when the query itself is language-neutral ("llm", "python")
-                # and English results are the correct answer.
                 meta[lang]["language_breakdown"] = dict(
-                    Counter(r.get("detected_language") or "?" for r in all_results[lang])
+                    Counter(
+                        (r.get("detected_language") or "?")
+                        for r in results
+                        if r.get("language_mismatch")
+                    )
                 )
 
         for lang, message in provider_errors.items():

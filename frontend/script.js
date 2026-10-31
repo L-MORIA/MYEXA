@@ -77,13 +77,15 @@ createApp({
             return Array.isArray(list) && list.length ? list.length : 0;
         },
 
+        langLabel(code) {
+            return this.languages.find(l => l.code === code)?.label
+                || ({ en: 'English', de: 'German', it: 'Italian', ru: 'Russian' }[code])
+                || (code === '?' ? 'an unknown language' : code);
+        },
+
         metaWarning(code) {
             const meta = this.searchMeta?.[code];
             if (!meta) return '';
-            const label = (c) =>
-                this.languages.find(l => l.code === c)?.label
-                || ({ en: 'English', de: 'German', it: 'Italian', ru: 'Russian' }[c])
-                || (c === '?' ? 'an unknown language' : c);
             if (meta.error) return `Search backend error for this language: ${meta.error}`;
             if (meta.fallback_reason) {
                 // The primary provider failed and the fallback answered. The
@@ -94,38 +96,33 @@ createApp({
             if (meta.translation_failed) {
                 // The query was searched untranslated: this — not the
                 // provider — is why the results may be in the wrong language.
-                return `Query could not be translated to ${label(code)} — `
+                return `Query could not be translated to ${this.langLabel(code)} — `
                     + 'searched as typed, so results may be in the wrong language.';
             }
             if (meta.filtered_out) {
                 return `All ${meta.fetched} results scored below the relevance threshold (${meta.threshold}).`;
             }
-            if (meta.language_mismatched) {
-                // Name the language the results are actually in: a bare
-                // "another language" reads like a defect when the query is
-                // language-neutral ("llm") and English results are the
-                // correct answer.
-                const total = meta.returned ?? meta.fetched ?? 0;
-                const names = Object.entries(meta.language_breakdown || {})
-                    .filter(([c]) => c !== code)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([c]) => label(c));
-                const nameList = names.join(' / ') || 'another language';
-                return `${meta.language_mismatched} of ${total} result(s) `
-                    + `are in ${nameList}, not in ${label(code)}.`;
-            }
             return '';
         },
 
         emptyStateMessage(code) {
-            // The empty state must say WHY it is empty: a provider outage and a
-            // relevance threshold are completely different problems.
+            // The empty state must say WHY it is empty: a provider outage, a
+            // relevance threshold and a strict language filter are completely
+            // different problems.
             const meta = this.searchMeta?.[code];
             if (meta?.error) {
                 return 'The search backend did not return results for this language.';
             }
             if (meta?.filtered_out) {
                 return 'Nothing passed the relevance threshold for this language.';
+            }
+            if (meta?.language_filtered) {
+                const names = Object.entries(meta.language_breakdown || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([c]) => this.langLabel(c))
+                    .join(' / ');
+                return `All ${meta.fetched ?? meta.language_filtered} results were in `
+                    + `other languages (${names || 'not this one'}) — none in ${this.langLabel(code)}.`;
             }
             return 'No results found.';
         },

@@ -94,17 +94,15 @@ class LanguageDetector:
         return results
 
     def filter_by_language(self, results: list[dict]) -> list[dict]:
-        """Keep results whose detected language matches the request.
+        """Keep only results whose detected language matches the request.
 
-        Results are marked with ``language_mismatch``. When fewer than half of
-        the results match, all of them are kept — a language tab must not end
-        up empty just because the whole page is in another language, but the
-        mismatch stays visible to the caller.
+        Strict on purpose. The previous keep-all rule (mixed results were
+        shown with a warning when fewer than half matched) read as broken:
+        a German tab full of English pages is not a German tab, whatever the
+        banner says. The caller reports how many results were dropped and
+        which languages they were in, so an empty tab is explained instead
+        of mysterious.
         """
         for item in results:
             item["language_mismatch"] = item.get("language_match", 1.0) < 1.0
-
-        matched = [item for item in results if not item["language_mismatch"]]
-        if matched and len(matched) >= len(results) / 2:
-            return matched
-        return results
+        return [item for item in results if not item["language_mismatch"]]
