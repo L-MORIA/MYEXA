@@ -17,7 +17,10 @@ echo.
 
 rem Warn early if the API key is missing — the server starts fine without it,
 rem but every search returns "no results".
-findstr /B /C:"EXA_API_KEY=" .env | findstr /V /C:"your_api_key_here" | findstr /V /C:"EXA_API_KEY=" >nul
+rem The check passes when a line starts with EXA_API_KEY= and does not hold
+rem the placeholder. (A third "findstr /V EXA_API_KEY=" used to strip comment
+rem lines but matched the valid line too, so the warning always fired.)
+findstr /B /C:"EXA_API_KEY=" .env | findstr /V /C:"your_api_key_here" >nul
 if errorlevel 1 (
     echo WARNING: EXA_API_KEY is missing or still the placeholder in .env
     echo          Searches will return no results until it is set.
