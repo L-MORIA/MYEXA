@@ -1,15 +1,19 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import Body, FastAPI, File, HTTPException, UploadFile, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import os
 import sys
+import tempfile
 
 # Add backend to path
 sys.path.insert(0, os.path.dirname(__file__))
 
-from config import Config
-from models.schemas import SearchQuery, OCRRequest
+from config import Config, validate_config, setup_logging
+from models.schemas import SearchQuery, OCRRequest, CustomSite
 from api.database import Database
 from api.translator import Translator
 from services.exa_service import ExaService
@@ -18,12 +22,22 @@ from services.indexing import IndexingService
 from services.ocr_service import OCRService
 from services.site_db import SiteDBService
 
+# Setup rate limiter
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="MYEXA", version="1.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Setup logging
+logger = setup_logging()
+
+# Validate configuration at startup
+validate_config()
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=Config.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,18 +52,18 @@ indexing_service = IndexingService()
 ocr_service = OCRService()
 site_db_service = SiteDBService()
 
-# Serve static files
-frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
-if os.path.exists(frontend_path):
-    app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+frontend_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
 
 @app.get("/")
 async def root():
-    """Serve main page"""
-    return {"message": "MYEXA API running on port 3005"}
+    """Open web UI when frontend is present; otherwise API stub."""
+    if os.path.isdir(frontend_path):
+        return RedirectResponse(url="/static/index.html", status_code=302)
+    return {"message": "MYEXA API running", "port": Config.PORT}
 
 @app.post("/api/search")
-async def search(query_data: SearchQuery):
+@limiter.limit("10/minute")
+async def search(request: Request, query_data: SearchQuery):
     """Search with multi-language support and filtering"""
     try:
         query = query_data.query
@@ -110,31 +124,51 @@ async def search(query_data: SearchQuery):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/ocr")
-async def ocr_process(file: UploadFile = File(...), language: str = "eng"):
+@limiter.limit("5/minute")
+async def ocr_process(request: Request, file: UploadFile = File(...), language: str = "eng"):
     """Process file with OCR (PDF or image)"""
+    suffix = ""
+    if file.filename and "." in file.filename:
+        suffix = "." + file.filename.rsplit(".", 1)[-1]
+
+    temp_path = None
     try:
-        # Save uploaded file temporarily
-        temp_path = f"/tmp/{file.filename}"
-        with open(temp_path, "wb") as f:
-            f.write(await file.read())
-        
-        # Process file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await file.read())
+            temp_path = tmp.name
         result = ocr_service.process_file(temp_path, language)
-        
-        # Clean up
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        
         return result
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
 
 @app.post("/api/custom-sites/add")
-async def add_custom_site(url: str, title: str, category: str = None, tags: str = None):
-    """Add site to custom database"""
+@limiter.limit("20/minute")
+async def add_custom_site(
+    request: Request,
+    site: CustomSite | None = Body(default=None),
+    url: str | None = None,
+    title: str | None = None,
+    category: str | None = None,
+    tags: str | None = None,
+):
+    """Add site: JSON body (web UI) or query params ?url=&title= (curl / API.md)."""
     try:
-        success = site_db_service.add_site(url, title, category, tags)
+        if site is not None:
+            u, t, c, tg = site.url, site.title, site.category, site.tags
+        elif url is not None and title is not None:
+            u, t, c, tg = url, title, category, tags
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail="Provide JSON body {url, title, ...} or query params url and title.",
+            )
+        success = site_db_service.add_site(u, t, c, tg)
         return {
             "success": success,
             "message": "Site added" if success else "Failed to add site"
@@ -156,7 +190,8 @@ async def get_custom_sites():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/custom-sites/{url}")
-async def delete_custom_site(url: str):
+@limiter.limit("20/minute")
+async def delete_custom_site(request: Request, url: str):
     """Delete site from custom database"""
     try:
         success = site_db_service.delete_site(url)
@@ -176,6 +211,26 @@ async def health():
         "port": Config.PORT
     }
 
+# Mount static files last so /api/* and / are not shadowed (FastAPI/Starlette route order).
+if os.path.isdir(frontend_path):
+    app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+
 if __name__ == "__main__":
+    import errno
     import uvicorn
-    uvicorn.run(app, host=Config.HOST, port=Config.PORT)
+
+    try:
+        print(
+            f"MYEXA web UI: http://127.0.0.1:{Config.PORT}/  "
+            f"(API: http://127.0.0.1:{Config.PORT}/api/health)"
+        )
+        uvicorn.run(app, host=Config.HOST, port=Config.PORT)
+    except OSError as e:
+        winerror = getattr(e, "winerror", None)
+        if winerror == 10048 or e.errno == errno.EADDRINUSE:
+            print(
+                f"Port {Config.PORT} is already in use. "
+                "Stop the other MYEXA instance or any program using this port (default is 3005)."
+            )
+            raise SystemExit(1) from e
+        raise

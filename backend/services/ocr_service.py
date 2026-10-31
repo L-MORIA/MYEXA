@@ -4,6 +4,9 @@ import pytesseract
 from config import Config
 from typing import Dict
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class OCRService:
     def __init__(self):
@@ -24,7 +27,7 @@ class OCRService:
                     "success": True
                 }
         except Exception as e:
-            print(f"PyPDF2 error: {e}")
+            logger.error(f"PyPDF2 error: {e}")
         
         # Fallback to Tesseract
         try:
@@ -36,7 +39,7 @@ class OCRService:
                 "success": True
             }
         except Exception as e:
-            print(f"Tesseract error: {e}")
+            logger.error(f"Tesseract error: {e}")
             return {
                 "text": "",
                 "confidence": 0.0,
@@ -76,7 +79,7 @@ class OCRService:
                 "success": True
             }
         except Exception as e:
-            print(f"Image OCR error: {e}")
+            logger.error(f"Image OCR error: {e}")
             return {
                 "text": "",
                 "confidence": 0.0,

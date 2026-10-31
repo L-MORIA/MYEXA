@@ -1,6 +1,9 @@
 from exa_py import Exa
 from config import Config
 from typing import List, Dict
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ExaService:
     def __init__(self):
@@ -32,7 +35,7 @@ class ExaService:
             
             return results
         except Exception as e:
-            print(f"Exa search error: {e}")
+            logger.error(f"Exa search error: {e}")
             return []
     
     def search_multiple_languages(self, query: str, languages: List[str], 
@@ -61,5 +64,5 @@ class ExaService:
             
             return contents
         except Exception as e:
-            print(f"Get contents error: {e}")
+            logger.error(f"Get contents error: {e}")
             return []

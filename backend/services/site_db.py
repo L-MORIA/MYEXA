@@ -1,5 +1,8 @@
 from typing import List, Dict
 from api.database import Database
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SiteDBService:
     def __init__(self):
@@ -11,7 +14,7 @@ class SiteDBService:
             self.db.add_custom_site(url, title, category, tags)
             return True
         except Exception as e:
-            print(f"Error adding site: {e}")
+            logger.error(f"Error adding site: {e}")
             return False
     
     def get_all_sites(self) -> List[Dict]:
@@ -30,7 +33,7 @@ class SiteDBService:
                 for site in sites
             ]
         except Exception as e:
-            print(f"Error getting sites: {e}")
+            logger.error(f"Error getting sites: {e}")
             return []
     
     def search_in_custom_db(self, query: str) -> List[Dict]:
@@ -66,5 +69,5 @@ class SiteDBService:
             conn.close()
             return True
         except Exception as e:
-            print(f"Error deleting site: {e}")
+            logger.error(f"Error deleting site: {e}")
             return False

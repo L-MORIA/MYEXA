@@ -1,5 +1,11 @@
 const { createApp } = Vue;
 
+/** Same-origin when UI is served from this app; full URL if index.html opened as file:// */
+const API_BASE =
+    typeof window !== 'undefined' && window.location.protocol === 'file:'
+        ? 'http://127.0.0.1:3005'
+        : '';
+
 createApp({
     data() {
         return {
@@ -36,7 +42,7 @@ createApp({
             
             this.loading = true;
             try {
-                const response = await fetch('/api/search', {
+                const response = await fetch(`${API_BASE}/api/search`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -81,7 +87,7 @@ createApp({
             formData.append('language', 'eng');
             
             try {
-                const response = await fetch('/api/ocr', {
+                const response = await fetch(`${API_BASE}/api/ocr`, {
                     method: 'POST',
                     body: formData
                 });
@@ -108,7 +114,7 @@ createApp({
             }
             
             try {
-                const response = await fetch('/api/custom-sites/add', {
+                const response = await fetch(`${API_BASE}/api/custom-sites/add`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -132,7 +138,7 @@ createApp({
         
         async loadCustomSites() {
             try {
-                const response = await fetch('/api/custom-sites');
+                const response = await fetch(`${API_BASE}/api/custom-sites`);
                 const data = await response.json();
                 if (data.success) {
                     this.customSites = data.sites;
@@ -148,9 +154,10 @@ createApp({
             }
             
             try {
-                const response = await fetch(`/api/custom-sites/${encodeURIComponent(url)}`, {
-                    method: 'DELETE'
-                });
+                const response = await fetch(
+                    `${API_BASE}/api/custom-sites/${encodeURIComponent(url)}`,
+                    { method: 'DELETE' }
+                );
                 
                 const data = await response.json();
                 if (data.success) {
@@ -167,7 +174,7 @@ createApp({
         
         async addToCustomDB(result) {
             try {
-                const response = await fetch('/api/custom-sites/add', {
+                const response = await fetch(`${API_BASE}/api/custom-sites/add`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -197,9 +204,10 @@ createApp({
             }
             
             try {
-                const response = await fetch(`/api/custom-sites/${encodeURIComponent(url)}`, {
-                    method: 'DELETE'
-                });
+                const response = await fetch(
+                    `${API_BASE}/api/custom-sites/${encodeURIComponent(url)}`,
+                    { method: 'DELETE' }
+                );
                 
                 const data = await response.json();
                 if (data.success) {

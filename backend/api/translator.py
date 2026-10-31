@@ -1,5 +1,7 @@
-from google.cloud import translate_v2
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Translator:
     def __init__(self):
@@ -38,12 +40,14 @@ class Translator:
             if response.status_code == 200:
                 return response.json().get("translatedText", text)
         except Exception as e:
-            print(f"Translation error: {e}")
+            logger.error(f"Translation error: {e}")
         
         return text
     
     def _translate_google(self, text: str, target_language: str) -> str:
-        """Use Google Translate API"""
+        """Use Google Translate API (requires: pip install google-cloud-translate)"""
+        from google.cloud import translate_v2
+
         if not self.client:
             self.client = translate_v2.Client()
         
@@ -54,7 +58,7 @@ class Translator:
             )
             return result["translatedText"]
         except Exception as e:
-            print(f"Google Translate error: {e}")
+            logger.error(f"Google Translate error: {e}")
             return text
     
     def translate_to_multiple(self, text: str, languages: list) -> dict:

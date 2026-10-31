@@ -2,10 +2,36 @@ from sentence_transformers import SentenceTransformer, util
 from config import Config
 from typing import List, Dict
 import torch
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class EmbeddingService:
-    def __init__(self):
-        self.model = SentenceTransformer(Config.EMBEDDING_MODEL)
+    _instance = None
+    _model = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(EmbeddingService, cls).__new__(cls)
+            cls._instance._initialize_model()
+        return cls._instance
+
+    def _initialize_model(self):
+        """Initialize embedding model (singleton pattern)"""
+        if self._model is None:
+            try:
+                logger.info(f"Loading embedding model: {Config.EMBEDDING_MODEL}")
+                self._model = SentenceTransformer(Config.EMBEDDING_MODEL)
+                logger.info("Embedding model loaded successfully")
+            except Exception as e:
+                logger.error(f"Failed to load embedding model: {e}")
+                raise
+
+    @property
+    def model(self):
+        """Get the cached model"""
+        return self._model
     
     def get_embedding(self, text: str):
         """Get embedding for text"""
