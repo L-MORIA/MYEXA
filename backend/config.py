@@ -63,6 +63,12 @@ class Config:
     HOST = os.getenv("HOST", "127.0.0.1")
     PORT = _parse_port()
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    # Browser origins allowed to call the API (CORS). The bundled UI talks to
+    # the API same-origin, but a UI opened as a local file (file://) or a
+    # separate frontend needs an explicit origin here.
+    CORS_ORIGINS = os.getenv(
+        "CORS_ORIGINS", "http://localhost:3005,http://127.0.0.1:3005"
+    ).split(",")
     # Multilingual model: supports ru/de/it/en cross-lingual comparison.
     EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 

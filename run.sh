@@ -1,6 +1,8 @@
 #!/bin/bash
 # MYEXA - Advanced Search Engine Launcher (Linux/Mac)
 
+cd "$(dirname "$0")"
+
 echo ""
 echo "========================================"
 echo "  MYEXA - Advanced Search Engine"

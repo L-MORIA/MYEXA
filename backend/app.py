@@ -23,6 +23,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -51,9 +54,15 @@ class AddSiteRequest(BaseModel):
 
 app = FastAPI(title="MYEXA", version="1.0.0")
 
+# Rate limiting: the API has no authentication, so without it a single
+# client can hammer the OCR and custom-site endpoints unbounded.
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3005"],
+    allow_origins=Config.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -334,6 +343,7 @@ async def search(query_data: SearchQuery):
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 @app.post("/api/ocr")
+@limiter.limit("5/minute")
 async def ocr_process(
     file: UploadFile = File(...),
     language: str = Form("eng"),
@@ -404,7 +414,8 @@ async def ocr_process(
             os.unlink(temp_path)
 
 @app.post("/api/custom-sites/add")
-async def add_custom_site(site: AddSiteRequest):
+@limiter.limit("20/minute")
+async def add_custom_site(request: Request, site: AddSiteRequest):
     try:
         success = site_db_service.add_site(site.url, site.title, site.category, site.tags)
         return {
@@ -430,7 +441,8 @@ async def get_custom_sites():
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 @app.delete("/api/custom-sites/{site_id:int}")
-async def delete_custom_site(site_id: int):
+@limiter.limit("20/minute")
+async def delete_custom_site(request: Request, site_id: int):
     try:
         success = site_db_service.delete_site(site_id)
         return {
@@ -531,6 +543,17 @@ if __name__ == "__main__":
 
     try:
         uvicorn.run(app, host=Config.HOST, port=Config.PORT)
+    except OSError as e:
+        import errno
+        winerror = getattr(e, "winerror", None)
+        if winerror == 10048 or e.errno == errno.EADDRINUSE:
+            print(
+                f"Port {Config.PORT} is already in use. "
+                "Stop the other MYEXA instance or any program using this port "
+                "(default is 3005)."
+            )
+            raise SystemExit(1) from e
+        raise
     finally:
         try:
             os.remove(pid_file)
